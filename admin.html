@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — TemuBalik</title>
+  <meta name="description" content="Panel admin sederhana untuk mengelola laporan barang hilang." />
+  <link rel="icon" href="assets/img/placeholder.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <a href="#main" class="sr-only">Lewati ke konten utama</a>
+
+  <header class="site-header">
+    <div class="container">
+      <nav class="navbar" aria-label="Navigasi utama">
+        <a href="index.html" class="brand">
+          <span class="brand-mark" aria-hidden="true">TB</span>
+          <span>TemuBalik<small>Lost &amp; Found</small></span>
+        </a>
+        <div class="nav-links" id="navLinks">
+          <a href="index.html">Beranda</a>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+          <a href="admin.html">Admin</a>
+        </div>
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" aria-label="Ganti tema" type="button"></button>
+          <button class="icon-btn nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <div class="page-head">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="index.html">Beranda</a>
+          <span class="sep">/</span>
+          <span>Admin</span>
+        </nav>
+        <h1>Panel Admin</h1>
+        <p>Kelola seluruh laporan barang hilang: ubah status dan hapus laporan yang tidak relevan.</p>
+      </div>
+
+      <div class="section" style="padding-top: 24px;">
+        <!-- ====== LOGIN GATE ====== -->
+        <div id="loginGate">
+          <div class="result-panel" style="max-width: 440px;">
+            <div class="result-icon" style="background: var(--primary-soft); color: var(--primary);">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            </div>
+            <h2>Masuk sebagai Admin</h2>
+            <p>Halaman ini dilindungi kata sandi sederhana. Untuk keperluan demo, gunakan kata sandi di bawah.</p>
+
+            <form id="loginForm" novalidate>
+              <div class="field" data-field="password" style="text-align:left;">
+                <label for="password">Kata Sandi</label>
+                <input class="input" type="password" id="password" name="password" placeholder="Masukkan kata sandi admin" autocomplete="current-password" />
+                <span class="error-msg" data-error-for="password"></span>
+              </div>
+              <button class="btn btn-primary btn-block mt-16" type="submit">Masuk</button>
+            </form>
+
+            <p class="muted small mt-16 mb-0">
+              Kata sandi demo: <span class="mono" style="font-weight:700; color: var(--primary);">admin123</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- ====== DASHBOARD ====== -->
+        <div id="adminPanel" class="hidden">
+          <div class="stat-grid mb-24">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>
+              </div>
+              <div>
+                <div class="stat-num" id="aTotal">0</div>
+                <div class="stat-lbl">Total Laporan</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon warn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              </div>
+              <div>
+                <div class="stat-num" id="aAktif">0</div>
+                <div class="stat-lbl">Masih Dicari</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon ok">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4.5 4.5L19 6"/></svg>
+              </div>
+              <div>
+                <div class="stat-num" id="aSelesai">0</div>
+                <div class="stat-lbl">Sudah Kembali</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="field grow">
+              <label for="adminSearch">Cari laporan</label>
+              <div class="search-input-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input class="input" type="search" id="adminSearch" placeholder="Kode, nama barang, atau pelapor..." />
+              </div>
+            </div>
+            <div class="field">
+              <label for="adminStatus">Status</label>
+              <select class="select" id="adminStatus">
+                <option value="">Semua</option>
+                <option value="Aktif">Aktif</option>
+                <option value="Selesai">Selesai</option>
+              </select>
+            </div>
+            <button class="btn btn-ghost" id="logoutBtn" type="button">Keluar</button>
+          </div>
+
+          <div class="result-bar">
+            <span id="adminCount">Memuat…</span>
+          </div>
+
+          <div id="adminTable"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">TB</span>
+            <span>TemuBalik<small>Lost &amp; Found</small></span>
+          </a>
+          <p>Layanan pelaporan barang hilang untuk membantu mahasiswa dan staf menemukan kembali barang berharganya.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigasi</h4>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontak</h4>
+          <p>Pos Keamanan Gedung Utama</p>
+          <p>WhatsApp: 0812-0000-0000</p>
+          <p>Jam: 08.00 – 17.00 WIB</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span id="year">2026</span> TemuBalik. Dibuat untuk keperluan pembelajaran.</span>
+        <span>HTML · CSS · JavaScript</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daftar Laporan — TemuBalik</title>
+  <meta name="description" content="Telusuri daftar barang hilang yang telah dilaporkan. Filter berdasarkan kategori, status, dan lokasi." />
+  <link rel="icon" href="assets/img/placeholder.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <a href="#main" class="sr-only">Lewati ke konten utama</a>
+
+  <header class="site-header">
+    <div class="container">
+      <nav class="navbar" aria-label="Navigasi utama">
+        <a href="index.html" class="brand">
+          <span class="brand-mark" aria-hidden="true">TB</span>
+          <span>TemuBalik<small>Lost &amp; Found</small></span>
+        </a>
+        <div class="nav-links" id="navLinks">
+          <a href="index.html">Beranda</a>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+          <a href="admin.html">Admin</a>
+        </div>
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" aria-label="Ganti tema" type="button"></button>
+          <button class="icon-btn nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <div class="page-head">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="index.html">Beranda</a>
+          <span class="sep">/</span>
+          <span>Daftar Laporan</span>
+        </nav>
+        <h1>Daftar Laporan Barang Hilang</h1>
+        <p>Cari berdasarkan nama barang, lokasi, atau kode laporan. Gunakan filter untuk mempersempit hasil.</p>
+      </div>
+
+      <div class="section" style="padding-top: 24px;">
+        <!-- Filter -->
+        <div class="toolbar">
+          <div class="field grow">
+            <label for="q">Kata kunci</label>
+            <div class="search-input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input class="input" type="search" id="q" placeholder="Nama barang, lokasi, atau kode..." />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="fKategori">Kategori</label>
+            <select class="select" id="fKategori">
+              <option value="">Semua</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="fStatus">Status</label>
+            <select class="select" id="fStatus">
+              <option value="">Semua</option>
+              <option value="Aktif">Aktif</option>
+              <option value="Selesai">Selesai</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="fLokasi">Lokasi</label>
+            <select class="select" id="fLokasi">
+              <option value="">Semua</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="fUrut">Urutkan</label>
+            <select class="select" id="fUrut">
+              <option value="terbaru">Terbaru</option>
+              <option value="terlama">Terlama</option>
+              <option value="nama">Nama A-Z</option>
+            </select>
+          </div>
+
+          <button class="btn btn-ghost" id="resetBtn" type="button">Reset</button>
+        </div>
+
+        <!-- Result bar -->
+        <div class="result-bar">
+          <span id="resultCount">Memuat…</span>
+          <div id="activeChips" class="row" style="gap:6px;"></div>
+        </div>
+
+        <!-- Grid -->
+        <div class="report-grid" id="grid" aria-live="polite"></div>
+
+        <!-- Load more -->
+        <div class="text-center mt-32">
+          <button class="btn btn-ghost" id="loadMoreBtn" type="button" style="display:none;">Muat Lebih Banyak</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">TB</span>
+            <span>TemuBalik<small>Lost &amp; Found</small></span>
+          </a>
+          <p>Layanan pelaporan barang hilang untuk membantu mahasiswa dan staf menemukan kembali barang berharganya.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigasi</h4>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontak</h4>
+          <p>Pos Keamanan Gedung Utama</p>
+          <p>WhatsApp: 0812-0000-0000</p>
+          <p>Jam: 08.00 – 17.00 WIB</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span id="year">2026</span> TemuBalik. Dibuat untuk keperluan pembelajaran.</span>
+        <span>HTML · CSS · JavaScript</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/list.js"></script>
+</body>
+</html>

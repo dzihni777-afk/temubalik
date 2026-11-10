@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lapor Barang Hilang — TemuBalik</title>
+  <meta name="description" content="Formulir pelaporan barang hilang. Isi data barang, lokasi, dan waktu kejadian untuk mendapatkan kode laporan." />
+  <link rel="icon" href="assets/img/placeholder.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <a href="#main" class="sr-only">Lewati ke konten utama</a>
+
+  <header class="site-header">
+    <div class="container">
+      <nav class="navbar" aria-label="Navigasi utama">
+        <a href="index.html" class="brand">
+          <span class="brand-mark" aria-hidden="true">TB</span>
+          <span>TemuBalik<small>Lost &amp; Found</small></span>
+        </a>
+        <div class="nav-links" id="navLinks">
+          <a href="index.html">Beranda</a>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+          <a href="admin.html">Admin</a>
+        </div>
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" aria-label="Ganti tema" type="button"></button>
+          <button class="icon-btn nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <div class="page-head">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="index.html">Beranda</a>
+          <span class="sep">/</span>
+          <span>Lapor Barang</span>
+        </nav>
+        <h1>Formulir Pengajuan Barang Hilang</h1>
+        <p>Isi data dengan lengkap dan jujur. Semakin detail ciri khusus barang, semakin besar peluang barang ditemukan kembali.</p>
+      </div>
+
+      <!-- ====== FORM VIEW ====== -->
+      <div id="formView" class="section" style="padding-top: 24px;">
+        <div class="row" style="align-items:flex-start; gap: 26px;">
+          <!-- FORM -->
+          <form id="laporForm" class="card card-pad" style="flex: 1 1 620px; min-width: 0;" novalidate>
+            <!-- Data Pelapor -->
+            <fieldset style="border:0; margin-bottom: 30px;">
+              <legend style="font-size: 1rem; font-weight: 750; letter-spacing: -0.015em; margin-bottom: 4px;">Data Pelapor</legend>
+              <p class="muted small mb-16">Data ini dipakai agar penemu barang bisa menghubungi Anda.</p>
+
+              <div class="form-grid">
+                <div class="field" data-field="namaPelapor">
+                  <label for="namaPelapor">Nama Lengkap <span class="req">*</span></label>
+                  <input class="input" type="text" id="namaPelapor" name="namaPelapor" placeholder="Contoh: Rani Kusuma" autocomplete="name" />
+                  <span class="error-msg" data-error-for="namaPelapor"></span>
+                </div>
+
+                <div class="field" data-field="nim">
+                  <label for="nim">NIM / NIK / ID</label>
+                  <input class="input" type="text" id="nim" name="nim" placeholder="Contoh: 2021100234" inputmode="numeric" />
+                  <span class="hint">Opsional, membantu verifikasi identitas</span>
+                </div>
+
+                <div class="field" data-field="whatsapp">
+                  <label for="whatsapp">Nomor WhatsApp <span class="req">*</span></label>
+                  <input class="input" type="tel" id="whatsapp" name="whatsapp" placeholder="08xxxxxxxxxx" inputmode="numeric" autocomplete="tel" />
+                  <span class="error-msg" data-error-for="whatsapp"></span>
+                </div>
+
+                <div class="field" data-field="email">
+                  <label for="email">Email</label>
+                  <input class="input" type="email" id="email" name="email" placeholder="nama@mail.com" autocomplete="email" />
+                  <span class="error-msg" data-error-for="email"></span>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Data Barang -->
+            <fieldset style="border:0; margin-bottom: 30px;">
+              <legend style="font-size: 1rem; font-weight: 750; letter-spacing: -0.015em; margin-bottom: 4px;">Data Barang</legend>
+              <p class="muted small mb-16">Jelaskan barang sejelas mungkin agar mudah dikenali.</p>
+
+              <div class="form-grid">
+                <div class="field" data-field="namaBarang">
+                  <label for="namaBarang">Nama Barang <span class="req">*</span></label>
+                  <input class="input" type="text" id="namaBarang" name="namaBarang" placeholder="Contoh: Dompet Kulit Cokelat" />
+                  <span class="error-msg" data-error-for="namaBarang"></span>
+                </div>
+
+                <div class="field" data-field="kategori">
+                  <label for="kategori">Kategori <span class="req">*</span></label>
+                  <select class="select" id="kategori" name="kategori">
+                    <option value="">— Pilih kategori —</option>
+                  </select>
+                  <span class="error-msg" data-error-for="kategori"></span>
+                </div>
+
+                <div class="field" data-field="merek">
+                  <label for="merek">Merek / Tipe</label>
+                  <input class="input" type="text" id="merek" name="merek" placeholder="Contoh: Bonia, Apple, Eiger" />
+                </div>
+
+                <div class="field" data-field="warna">
+                  <label for="warna">Warna <span class="req">*</span></label>
+                  <input class="input" type="text" id="warna" name="warna" placeholder="Contoh: Cokelat tua" />
+                  <span class="error-msg" data-error-for="warna"></span>
+                </div>
+
+                <div class="field field-full" data-field="ciriKhusus">
+                  <label for="ciriKhusus">Ciri Khusus <span class="req">*</span></label>
+                  <textarea class="textarea" id="ciriKhusus" name="ciriKhusus" placeholder="Contoh: Ada goresan di sudut kanan, stiker kucing, isi KTM dan kartu ATM. Semakin detail semakin baik."></textarea>
+                  <span class="hint">Ciri khusus dipakai untuk memverifikasi bahwa barang benar milik Anda.</span>
+                  <span class="error-msg" data-error-for="ciriKhusus"></span>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Waktu & Lokasi -->
+            <fieldset style="border:0; margin-bottom: 30px;">
+              <legend style="font-size: 1rem; font-weight: 750; letter-spacing: -0.015em; margin-bottom: 4px;">Waktu &amp; Lokasi</legend>
+              <p class="muted small mb-16">Perkiraan waktu dan tempat terakhir barang terlihat.</p>
+
+              <div class="form-grid">
+                <div class="field" data-field="tanggalHilang">
+                  <label for="tanggalHilang">Tanggal Kehilangan <span class="req">*</span></label>
+                  <input class="input" type="date" id="tanggalHilang" name="tanggalHilang" />
+                  <span class="error-msg" data-error-for="tanggalHilang"></span>
+                </div>
+
+                <div class="field" data-field="jamHilang">
+                  <label for="jamHilang">Perkiraan Jam</label>
+                  <input class="input" type="time" id="jamHilang" name="jamHilang" />
+                </div>
+
+                <div class="field" data-field="lokasi">
+                  <label for="lokasi">Lokasi Kehilangan <span class="req">*</span></label>
+                  <select class="select" id="lokasi" name="lokasi">
+                    <option value="">— Pilih lokasi —</option>
+                  </select>
+                  <span class="error-msg" data-error-for="lokasi"></span>
+                </div>
+
+                <div class="field" data-field="lokasiDetail">
+                  <label for="lokasiDetail">Detail Lokasi</label>
+                  <input class="input" type="text" id="lokasiDetail" name="lokasiDetail" placeholder="Contoh: Meja dekat jendela, lantai 1" />
+                </div>
+
+                <div class="field field-full" data-field="kronologi">
+                  <label for="kronologi">Kronologi Kejadian <span class="req">*</span></label>
+                  <textarea class="textarea" id="kronologi" name="kronologi" placeholder="Ceritakan singkat bagaimana barang bisa hilang..."></textarea>
+                  <span class="error-msg" data-error-for="kronologi"></span>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Foto -->
+            <fieldset style="border:0; margin-bottom: 26px;">
+              <legend style="font-size: 1rem; font-weight: 750; letter-spacing: -0.015em; margin-bottom: 4px;">Foto Barang</legend>
+              <p class="muted small mb-16">Unggah foto barang bila ada. Format JPG/PNG, maksimal 5MB.</p>
+
+              <div class="field field-full" data-field="foto">
+                <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Unggah foto barang">
+                  <div class="dz-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                  </div>
+                  <strong>Klik atau tarik foto ke sini</strong>
+                  <span>JPG, PNG, WEBP · Maks 5MB</span>
+                </div>
+                <input type="file" id="fotoInput" accept="image/*" class="sr-only" />
+                <div class="preview-wrap" id="previewWrap"></div>
+                <span class="error-msg" data-error-for="foto"></span>
+              </div>
+            </fieldset>
+
+            <!-- Konfirmasi -->
+            <div class="field mb-24" data-field="setuju">
+              <label class="check" for="setuju">
+                <input type="checkbox" id="setuju" name="setuju" />
+                <span>Saya menyatakan bahwa data yang saya isi benar dan barang tersebut memang milik saya. Saya memahami laporan palsu dapat dikenakan sanksi.</span>
+              </label>
+              <span class="error-msg" data-error-for="setuju"></span>
+            </div>
+
+            <div class="row" style="gap: 10px;">
+              <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                Kirim Laporan
+              </button>
+              <button type="button" class="btn btn-ghost btn-lg" id="clearDraftBtn">Hapus Isian</button>
+              <div class="spacer"></div>
+              <span class="muted small" id="draftNote" style="display:none;">Draft tersimpan otomatis</span>
+            </div>
+          </form>
+
+          <!-- SIDEBAR -->
+          <aside style="flex: 0 1 320px; min-width: 0;">
+            <div class="card card-pad mb-16" style="background: var(--surface-2);">
+              <h3 style="font-size: 0.95rem; font-weight: 750; margin-bottom: 12px;">Tips agar cepat ditemukan</h3>
+              <ul style="display:flex; flex-direction:column; gap:10px; font-size:0.845rem; color: var(--muted);">
+                <li style="display:flex; gap:9px;"><span style="color:var(--success);flex-shrink:0;">✓</span> Tulis ciri khusus yang hanya diketahui pemilik.</li>
+                <li style="display:flex; gap:9px;"><span style="color:var(--success);flex-shrink:0;">✓</span> Sebutkan isi barang bila ada (dompet, tas).</li>
+                <li style="display:flex; gap:9px;"><span style="color:var(--success);flex-shrink:0;">✓</span> Gunakan lokasi sedetail mungkin.</li>
+                <li style="display:flex; gap:9px;"><span style="color:var(--success);flex-shrink:0;">✓</span> Lampirkan foto barang jika tersedia.</li>
+              </ul>
+            </div>
+
+            <div class="alert alert-info">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
+              <span>Setelah laporan dikirim, Anda akan menerima <strong>kode laporan</strong>. Simpan kode tersebut untuk mengecek status.</span>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ====== SUCCESS VIEW ====== -->
+      <div id="successView" class="section hidden" style="padding-top: 24px;">
+        <div class="result-panel">
+          <div class="result-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4.5 4.5L19 6"/></svg>
+          </div>
+          <h2>Laporan berhasil dikirim</h2>
+          <p>Simpan kode laporan berikut. Gunakan kode ini untuk mengecek status atau memperbarui laporan Anda.</p>
+
+          <div class="code-box">
+            <code id="resultCode">—</code>
+            <button class="btn btn-soft btn-sm" id="copyCodeBtn" type="button">Salin Kode</button>
+          </div>
+
+          <div class="result-actions">
+            <a href="status.html" class="btn btn-primary" id="checkStatusBtn">Cek Status Laporan</a>
+            <a href="daftar.html" class="btn btn-ghost">Lihat Daftar Laporan</a>
+            <button class="btn btn-ghost" id="printBtn" type="button">Unduh Bukti</button>
+          </div>
+
+          <p class="muted small mt-24 mb-0" style="font-size: 0.8rem;">
+            Laporan Anda hanya tersimpan di browser ini (mode demo front-end).
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">TB</span>
+            <span>TemuBalik<small>Lost &amp; Found</small></span>
+          </a>
+          <p>Layanan pelaporan barang hilang untuk membantu mahasiswa dan staf menemukan kembali barang berharganya.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigasi</h4>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontak</h4>
+          <p>Pos Keamanan Gedung Utama</p>
+          <p>WhatsApp: 0812-0000-0000</p>
+          <p>Jam: 08.00 – 17.00 WIB</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span id="year">2026</span> TemuBalik. Dibuat untuk keperluan pembelajaran.</span>
+        <span>HTML · CSS · JavaScript</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/form.js"></script>
+</body>
+</html>

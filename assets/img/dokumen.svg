@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Ilustrasi Dokumen">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#g)" opacity="0.14"/>
+  <circle cx="646" cy="104" r="118" fill="url(#g)" opacity="0.11"/>
+  <circle cx="146" cy="404" r="88" fill="url(#g)" opacity="0.11"/>
+  <rect x="336" y="282" width="200" height="120" rx="14" fill="#ffffff" opacity="0.7" transform="rotate(-7 436 342)"/>
+    <rect x="296" y="156" width="204" height="136" rx="14" fill="#ffffff" opacity="0.96"/>
+    <rect x="322" y="182" width="54" height="66" rx="6" fill="#0f766e" opacity="0.28"/>
+    <rect x="394" y="188" width="82" height="11" rx="5.5" fill="#0f766e" opacity="0.4"/>
+    <rect x="394" y="212" width="66" height="11" rx="5.5" fill="#0f766e" opacity="0.3"/>
+    <rect x="322" y="262" width="152" height="9" rx="4.5" fill="#0f766e" opacity="0.22"/>
+</svg>

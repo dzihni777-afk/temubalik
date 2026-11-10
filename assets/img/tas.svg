@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Ilustrasi Tas">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#334155"/>
+      <stop offset="1" stop-color="#64748b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#g)" opacity="0.14"/>
+  <circle cx="646" cy="104" r="118" fill="url(#g)" opacity="0.11"/>
+  <circle cx="146" cy="404" r="88" fill="url(#g)" opacity="0.11"/>
+  <path d="M320 212h160a16 16 0 0 1 16 16v94a16 16 0 0 1-16 16H320a16 16 0 0 1-16-16v-94a16 16 0 0 1 16-16z" fill="#ffffff" opacity="0.95"/>
+    <path d="M362 212v-18a38 38 0 0 1 76 0v18" fill="none" stroke="#ffffff" stroke-width="14" opacity="0.95"/>
+    <rect x="356" y="264" width="88" height="46" rx="10" fill="#334155" opacity="0.25"/>
+    <rect x="390" y="282" width="20" height="10" rx="5" fill="#ffffff"/>
+</svg>

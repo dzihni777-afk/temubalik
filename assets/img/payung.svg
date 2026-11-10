@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Ilustrasi Payung">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e40af"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#g)" opacity="0.14"/>
+  <circle cx="646" cy="104" r="118" fill="url(#g)" opacity="0.11"/>
+  <circle cx="146" cy="404" r="88" fill="url(#g)" opacity="0.11"/>
+  <path d="M400 146c-74 0-134 52-142 114h284c-8-62-68-114-142-114z" fill="#ffffff" opacity="0.96"/>
+    <path d="M258 260c13 17 32 17 45 0 13 17 32 17 45 0 13 17 32 17 45 0 13 17 32 17 45 0 13 17 32 17 45 0" fill="none" stroke="#ffffff" stroke-width="12" opacity="0.96"/>
+    <rect x="394" y="260" width="12" height="98" rx="6" fill="#ffffff" opacity="0.96"/>
+    <path d="M406 358a23 23 0 0 1-46 0" fill="none" stroke="#ffffff" stroke-width="12" opacity="0.96"/>
+</svg>

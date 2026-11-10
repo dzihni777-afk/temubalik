@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cek Status Laporan — TemuBalik</title>
+  <meta name="description" content="Cek status laporan barang hilang menggunakan kode laporan Anda." />
+  <link rel="icon" href="assets/img/placeholder.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <a href="#main" class="sr-only">Lewati ke konten utama</a>
+
+  <header class="site-header">
+    <div class="container">
+      <nav class="navbar" aria-label="Navigasi utama">
+        <a href="index.html" class="brand">
+          <span class="brand-mark" aria-hidden="true">TB</span>
+          <span>TemuBalik<small>Lost &amp; Found</small></span>
+        </a>
+        <div class="nav-links" id="navLinks">
+          <a href="index.html">Beranda</a>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+          <a href="admin.html">Admin</a>
+        </div>
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" aria-label="Ganti tema" type="button"></button>
+          <button class="icon-btn nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <div class="page-head">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="index.html">Beranda</a>
+          <span class="sep">/</span>
+          <span>Cek Status</span>
+        </nav>
+        <h1>Cek Status Laporan</h1>
+        <p>Masukkan kode laporan yang Anda terima saat membuat laporan, contoh: <span class="mono">LPR-20260214-001</span>.</p>
+      </div>
+
+      <div class="section" style="padding-top: 24px;">
+        <div class="card card-pad mb-24" style="max-width: 640px; margin-inline: auto;">
+          <form id="statusForm" novalidate>
+            <div class="field" data-field="kode">
+              <label for="kode">Kode Laporan</label>
+              <div class="row" style="gap:10px; align-items:flex-start;">
+                <input class="input" type="text" id="kode" name="kode" placeholder="LPR-20260214-001"
+                       style="flex:1 1 auto; text-transform: uppercase; font-family: ui-monospace, monospace; letter-spacing: 0.04em;" autocomplete="off" />
+                <button class="btn btn-primary" type="submit" style="flex-shrink:0;">Cek Status</button>
+              </div>
+              <span class="error-msg" data-error-for="kode"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Hasil -->
+        <div id="statusResult"></div>
+
+        <!-- Laporan saya -->
+        <div class="mt-32">
+          <div class="row mb-16">
+            <h2 style="font-size: 1.15rem; letter-spacing: -0.02em;">Laporan Saya</h2>
+            <div class="spacer"></div>
+            <a href="lapor.html" class="btn btn-ghost btn-sm">+ Laporan Baru</a>
+          </div>
+          <div id="mineList"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">TB</span>
+            <span>TemuBalik<small>Lost &amp; Found</small></span>
+          </a>
+          <p>Layanan pelaporan barang hilang untuk membantu mahasiswa dan staf menemukan kembali barang berharganya.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigasi</h4>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontak</h4>
+          <p>Pos Keamanan Gedung Utama</p>
+          <p>WhatsApp: 0812-0000-0000</p>
+          <p>Jam: 08.00 – 17.00 WIB</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span id="year">2026</span> TemuBalik. Dibuat untuk keperluan pembelajaran.</span>
+        <span>HTML · CSS · JavaScript</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/status.js"></script>
+</body>
+</html>

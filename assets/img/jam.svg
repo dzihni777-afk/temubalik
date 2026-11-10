@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="Ilustrasi Jam Tangan">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#g)" opacity="0.14"/>
+  <circle cx="646" cy="104" r="118" fill="url(#g)" opacity="0.11"/>
+  <circle cx="146" cy="404" r="88" fill="url(#g)" opacity="0.11"/>
+  <rect x="368" y="136" width="64" height="62" rx="12" fill="#ffffff" opacity="0.9"/>
+    <rect x="368" y="302" width="64" height="62" rx="12" fill="#ffffff" opacity="0.9"/>
+    <circle cx="400" cy="250" r="64" fill="#ffffff" opacity="0.96"/>
+    <circle cx="400" cy="250" r="49" fill="#0f172a" opacity="0.88"/>
+    <rect x="396" y="218" width="8" height="36" rx="4" fill="#ffffff"/>
+    <rect x="400" y="246" width="30" height="8" rx="4" fill="#ffffff"/>
+</svg>

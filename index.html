@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TemuBalik — Lapor &amp; Temukan Barang Hilang</title>
+  <meta name="description" content="TemuBalik adalah layanan pelaporan barang hilang. Laporkan barang Anda yang hilang dan pantau statusnya dengan kode laporan." />
+  <link rel="icon" href="assets/img/placeholder.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+  <a href="#main" class="sr-only">Lewati ke konten utama</a>
+
+  <!-- ================= HEADER ================= -->
+  <header class="site-header">
+    <div class="container">
+      <nav class="navbar" aria-label="Navigasi utama">
+        <a href="index.html" class="brand">
+          <span class="brand-mark" aria-hidden="true">TB</span>
+          <span>TemuBalik<small>Lost &amp; Found</small></span>
+        </a>
+
+        <div class="nav-links" id="navLinks">
+          <a href="index.html">Beranda</a>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+          <a href="admin.html">Admin</a>
+        </div>
+
+        <div class="nav-actions">
+          <button class="icon-btn" id="themeToggle" aria-label="Ganti tema" type="button"></button>
+          <button class="icon-btn nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="navLinks" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ================= HERO ================= -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <span class="hero-eyebrow"><span class="dot"></span> Layanan pelaporan barang hilang</span>
+          <h1>Kehilangan barang?<br /><em>Laporkan sekarang.</em></h1>
+          <p class="hero-lead">
+            Isi formulir singkat, dapatkan kode laporan, lalu pantau statusnya.
+            Satu tempat untuk semua barang hilang di lingkungan kampus.
+          </p>
+
+          <div class="hero-cta">
+            <a href="lapor.html" class="btn btn-primary btn-lg">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Laporkan Barang Hilang
+            </a>
+            <a href="daftar.html" class="btn btn-ghost btn-lg">Lihat Daftar Laporan</a>
+          </div>
+
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div class="num" id="statTotal">—</div>
+              <div class="lbl">Total Laporan</div>
+            </div>
+            <div class="hero-stat">
+              <div class="num" id="statAktif">—</div>
+              <div class="lbl">Masih Dicari</div>
+            </div>
+            <div class="hero-stat">
+              <div class="num" id="statSelesai">—</div>
+              <div class="lbl">Sudah Kembali</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hero-card">
+            <div class="hero-card-head">
+              <span class="badge badge-aktif"><span class="dot"></span>Aktif</span>
+              <span class="report-code" id="heroCode">LPR-20260214-001</span>
+            </div>
+            <div class="hero-card-thumb">
+              <img src="assets/img/tas.svg" alt="Contoh laporan barang hilang" id="heroImg" width="800" height="500" />
+            </div>
+            <div class="hero-card-title" id="heroTitle">Tas Ransel Hitam</div>
+            <div class="hero-card-meta">
+              <span id="heroLokasi">Kantin Gedung A</span>
+              <span aria-hidden="true">·</span>
+              <span id="heroTanggal">12 Feb 2026</span>
+            </div>
+          </div>
+
+          <div class="hero-float">
+            <span class="check">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4.5 4.5L19 6"/></svg>
+            </span>
+            <div>
+              <strong>Kode laporan otomatis</strong>
+              <span>Simpan untuk cek status</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ALUR ================= -->
+    <section class="section">
+      <div class="container">
+        <div class="section-head center">
+          <h2>Tiga langkah sederhana</h2>
+          <p>Tidak perlu daftar akun. Cukup isi formulir dan simpan kode laporan Anda.</p>
+        </div>
+
+        <div class="steps">
+          <article class="step">
+            <div class="step-num">1</div>
+            <h3>Isi formulir</h3>
+            <p>Lengkapi data barang, ciri khusus, lokasi, dan waktu kejadian. Unggah foto bila ada.</p>
+          </article>
+          <article class="step">
+            <div class="step-num">2</div>
+            <h3>Dapatkan kode</h3>
+            <p>Sistem membuat kode unik seperti <span class="mono">LPR-20260214-001</span>. Simpan kode ini.</p>
+          </article>
+          <article class="step">
+            <div class="step-num">3</div>
+            <h3>Pantau status</h3>
+            <p>Buka halaman cek status kapan saja untuk melihat apakah barang sudah ditemukan.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LAPORAN TERBARU ================= -->
+    <section class="section" style="padding-top: 0;">
+      <div class="container">
+        <div class="row mb-24">
+          <div class="section-head" style="margin-bottom: 0;">
+            <h2>Laporan terbaru</h2>
+            <p>Barang hilang yang baru saja dilaporkan.</p>
+          </div>
+          <div class="spacer"></div>
+          <a href="daftar.html" class="btn btn-ghost btn-sm">Lihat semua</a>
+        </div>
+
+        <div class="report-grid" id="latestGrid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ================= CTA ================= -->
+    <section class="section" style="padding-top: 0;">
+      <div class="container">
+        <div class="card" style="padding: 40px 28px; text-align: center; background: linear-gradient(140deg, var(--primary-soft), var(--surface));">
+          <h2 style="font-size: clamp(1.3rem, 3vw, 1.7rem); letter-spacing: -0.025em; margin-bottom: 10px;">
+            Menemukan barang orang lain?
+          </h2>
+          <p class="muted" style="max-width: 52ch; margin: 0 auto 22px; font-size: 0.93rem;">
+            Bantu kembalikan barang ke pemiliknya. Buka detail laporan dan gunakan kontak pelapor untuk menghubungi.
+          </p>
+          <a href="daftar.html" class="btn btn-primary">Telusuri Daftar Laporan</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">TB</span>
+            <span>TemuBalik<small>Lost &amp; Found</small></span>
+          </a>
+          <p>Layanan pelaporan barang hilang untuk membantu mahasiswa dan staf menemukan kembali barang berharganya.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Navigasi</h4>
+          <a href="lapor.html">Lapor Barang</a>
+          <a href="daftar.html">Daftar Laporan</a>
+          <a href="status.html">Cek Status</a>
+          <a href="tentang.html">Tentang</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontak</h4>
+          <p>Pos Keamanan Gedung Utama</p>
+          <p>WhatsApp: 0812-0000-0000</p>
+          <p>Jam: 08.00 – 17.00 WIB</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span id="year">2026</span> TemuBalik. Dibuat untuk keperluan pembelajaran.</span>
+        <span>HTML · CSS · JavaScript</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    (async function initHome() {
+      initSharedUI();
+
+      const grid = document.getElementById("latestGrid");
+      grid.innerHTML = Array.from({ length: 3 }).map(() => `
+        <div class="sk-card">
+          <div class="skeleton sk-thumb"></div>
+          <div class="skeleton sk-line w40"></div>
+          <div class="skeleton sk-line w60"></div>
+          <div class="skeleton sk-line w40" style="margin-bottom:18px"></div>
+        </div>`).join("");
+
+      try {
+        const [all, stats] = await Promise.all([Store.getAll(), Store.stats()]);
+
+        document.getElementById("statTotal").textContent = stats.total;
+        document.getElementById("statAktif").textContent = stats.aktif;
+        document.getElementById("statSelesai").textContent = stats.selesai;
+
+        // Hero card pakai laporan terbaru
+        if (all.length) {
+          const r = all[0];
+          document.getElementById("heroCode").textContent = r.id;
+          document.getElementById("heroTitle").textContent = r.namaBarang;
+          document.getElementById("heroLokasi").textContent = r.lokasi;
+          document.getElementById("heroTanggal").textContent = formatTanggalSingkat(r.createdAt);
+          document.getElementById("heroImg").src = r.foto || "assets/img/placeholder.svg";
+          const badge = document.querySelector(".hero-card-head .badge");
+          badge.className = `badge ${r.status === "Selesai" ? "badge-selesai" : "badge-aktif"}`;
+          badge.innerHTML = `<span class="dot"></span>${escapeHtml(r.status)}`;
+        }
+
+        const latest = all.slice(0, 6);
+        if (!latest.length) {
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+              <div class="emoji">📭</div>
+              <h3>Belum ada laporan</h3>
+              <p>Jadilah yang pertama melaporkan barang hilang.</p>
+              <a href="lapor.html" class="btn btn-primary">Buat Laporan</a>
+            </div>`;
+          return;
+        }
+
+        grid.innerHTML = latest.map((r) => `
+          <a class="report-card" href="detail.html?id=${encodeURIComponent(r.id)}">
+            <div class="report-thumb">
+              <img src="${escapeHtml(r.foto || "assets/img/placeholder.svg")}" alt="Foto ${escapeHtml(r.namaBarang)}" loading="lazy" />
+              <span class="badge ${r.status === "Selesai" ? "badge-selesai" : "badge-aktif"}">
+                <span class="dot"></span>${escapeHtml(r.status)}
+              </span>
+            </div>
+            <div class="report-body">
+              <span class="report-cat">${escapeHtml(r.kategori)}</span>
+              <h3 class="report-title">${escapeHtml(r.namaBarang)}</h3>
+              <div class="report-meta">
+                <span>${ICON.pin}${escapeHtml(r.lokasi)}</span>
+                <span>${ICON.calendar}${formatTanggalSingkat(r.tanggalHilang)}</span>
+              </div>
+              <span class="report-code">${escapeHtml(r.id)}</span>
+            </div>
+          </a>`).join("");
+      } catch (err) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><h3>Gagal memuat data</h3><p>${escapeHtml(err.message)}</p></div>`;
+      }
+    })();
+  </script>
+</body>
+</html>
