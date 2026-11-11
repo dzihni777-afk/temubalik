@@ -38,10 +38,13 @@ function section(title) {
   console.log(`\n=== ${title} ===`);
 }
 
-async function req(method, urlPath, body) {
+async function req(method, urlPath, body, extraHeaders = {}) {
+  const headers = { ...extraHeaders };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+
   const res = await fetch(BASE + urlPath, {
     method,
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    headers,
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
   });
   const text = await res.text();
@@ -92,6 +95,7 @@ function waitForServer(timeoutMs = 15000) {
   child.stderr.on("data", (d) => serverLog.push(d.toString()));
 
   let createdId = null;
+  let token = null; // token admin, diisi di bagian "Admin — login & sesi"
 
   try {
     await waitForServer();
@@ -274,23 +278,158 @@ function waitForServer(timeoutMs = 15000) {
       check("path aset lokal diterima", assetPhoto.status === 201);
     }
 
-    section("Endpoint yang sengaja belum jadi (stub)");
+    section("GET /api/stats");
     {
-      const patch = await req("PATCH", `/api/reports/${createdId}/status`, { status: "Selesai" });
-      check("PATCH status → 501", patch.status === 501, `dapat ${patch.status}`);
-      check("kode NOT_IMPLEMENTED", patch.json?.error?.code === "NOT_IMPLEMENTED");
-
-      const del = await req("DELETE", `/api/reports/${createdId}`);
-      check("DELETE → 501", del.status === 501);
-
       const stats = await req("GET", "/api/stats");
-      check("GET /api/stats → 501", stats.status === 501);
+      check("200", stats.status === 200, `dapat ${stats.status}`);
+
+      const list = await req("GET", "/api/reports?limit=1");
+      check(
+        "total sama dengan jumlah di /api/reports",
+        stats.json?.data?.total === list.json?.meta?.total,
+        `stats ${stats.json?.data?.total} vs list ${list.json?.meta?.total}`
+      );
+      check(
+        "aktif + selesai = total",
+        stats.json?.data?.aktif + stats.json?.data?.selesai === stats.json?.data?.total
+      );
+      check("ada rincian per kategori", Array.isArray(stats.json?.data?.perKategori));
+      check("ada rincian per lokasi", Array.isArray(stats.json?.data?.perLokasi));
+      check("ada info laporan terbaru", Boolean(stats.json?.data?.terbaru?.id));
+      check("POST /api/stats → 405", (await req("POST", "/api/stats")).status === 405);
+    }
+
+    section("Admin — login & sesi");
+    {
+      const noAuth = await req("PATCH", `/api/reports/${createdId}/status`, { status: "Selesai" });
+      check("PATCH tanpa token → 401", noAuth.status === 401, `dapat ${noAuth.status}`);
+      check("kode error UNAUTHORIZED", noAuth.json?.error?.code === "UNAUTHORIZED");
+
+      const delNoAuth = await req("DELETE", `/api/reports/${createdId}`);
+      check("DELETE tanpa token → 401", delNoAuth.status === 401);
+
+      const emptyBody = await req("POST", "/api/admin/login", {});
+      check("login tanpa kata sandi → 422", emptyBody.status === 422);
+
+      const wrong = await req("POST", "/api/admin/login", { password: "salah-banget" });
+      check("kata sandi salah → 401", wrong.status === 401, `dapat ${wrong.status}`);
+      check("tidak membocorkan token", !wrong.json?.data?.token);
 
       const login = await req("POST", "/api/admin/login", { password: "admin123" });
-      check("POST /api/admin/login → 501", login.status === 501);
+      check("login benar → 200", login.status === 200, `dapat ${login.status}`);
+      token = login.json?.data?.token;
+      check("token berupa 64 hex", /^[a-f0-9]{64}$/.test(token || ""), String(token).slice(0, 12));
+      check("ada expiresAt", Boolean(login.json?.data?.expiresAt));
 
-      const still = await req("GET", `/api/reports/${createdId}`);
-      check("data tidak berubah setelah stub dipanggil", still.json?.data?.status === "Aktif");
+      const me = await req("GET", "/api/admin/me", undefined, { Authorization: `Bearer ${token}` });
+      check("GET /api/admin/me → 200", me.status === 200);
+      check("admin bernilai true", me.json?.data?.admin === true);
+
+      const meNoHeader = await req("GET", "/api/admin/me");
+      check("me tanpa header → 401", meNoHeader.status === 401);
+
+      const meBadFormat = await req("GET", "/api/admin/me", undefined, { Authorization: token });
+      check("header tanpa skema Bearer → 401", meBadFormat.status === 401);
+
+      const meBadToken = await req("GET", "/api/admin/me", undefined, {
+        Authorization: "Bearer " + "0".repeat(64),
+      });
+      check("token palsu → 401", meBadToken.status === 401);
+    }
+
+    section("PATCH /api/reports/:id/status");
+    {
+      const auth = { Authorization: `Bearer ${token}` };
+
+      const ok = await req("PATCH", `/api/reports/${createdId}/status`, { status: "Selesai" }, auth);
+      check("200", ok.status === 200, `dapat ${ok.status}`);
+      check("status berubah jadi Selesai", ok.json?.data?.status === "Selesai");
+      check("updatedAt diperbarui", Boolean(ok.json?.data?.updatedAt));
+
+      const refetch = await req("GET", `/api/reports/${createdId}`);
+      check("perubahan tersimpan", refetch.json?.data?.status === "Selesai");
+
+      const lower = await req("PATCH", `/api/reports/${String(createdId).toLowerCase()}/status`, { status: "Aktif" }, auth);
+      check("id tidak peka huruf besar/kecil", lower.status === 200 && lower.json?.data?.status === "Aktif");
+
+      const badStatus = await req("PATCH", `/api/reports/${createdId}/status`, { status: "Hilang" }, auth);
+      check("status tidak dikenal → 422", badStatus.status === 422);
+      check("field status muncul", Boolean(badStatus.json?.error?.fields?.status));
+
+      const emptyStatus = await req("PATCH", `/api/reports/${createdId}/status`, {}, auth);
+      check("body kosong → 422", emptyStatus.status === 422);
+
+      const missing = await req("PATCH", "/api/reports/LPR-99999999-999/status", { status: "Selesai" }, auth);
+      check("id tidak ada → 404", missing.status === 404);
+      check("kode error REPORT_NOT_FOUND", missing.json?.error?.code === "REPORT_NOT_FOUND");
+    }
+
+    section("DELETE /api/reports/:id");
+    {
+      const auth = { Authorization: `Bearer ${token}` };
+
+      // Laporan khusus untuk dihapus, supaya createdId tetap ada untuk uji lain.
+      const victim = await req("POST", "/api/reports", {
+        namaPelapor: "Rina Wulandari",
+        whatsapp: "081298765432",
+        namaBarang: "Payung Lipat Biru",
+        kategori: "Lainnya",
+        warna: "Biru",
+        ciriKhusus: "Pegangan kayu dengan ukiran nama di bagian ujungnya",
+        tanggalHilang: "2026-02-11",
+        lokasi: "Kantin",
+        kronologi: "Payung tertinggal di meja kantin setelah makan siang bersama teman.",
+      });
+      const victimId = victim.json?.data?.id;
+      check("laporan uji hapus dibuat", victim.status === 201, `dapat ${victim.status}`);
+
+      const del = await req("DELETE", `/api/reports/${victimId}`, undefined, auth);
+      check("200", del.status === 200, `dapat ${del.status}`);
+      check("membalas deleted: true", del.json?.data?.deleted === true);
+      check("id yang dihapus sesuai", del.json?.data?.id === victimId);
+
+      const gone = await req("GET", `/api/reports/${victimId}`);
+      check("sudah tidak bisa diambil → 404", gone.status === 404);
+
+      const again = await req("DELETE", `/api/reports/${victimId}`, undefined, auth);
+      check("hapus dua kali → 404", again.status === 404);
+
+      const list = await req("GET", "/api/reports?limit=100");
+      check("tidak muncul lagi di daftar", !list.json.data.some((r) => r.id === victimId));
+    }
+
+    section("Admin — logout");
+    {
+      const auth = { Authorization: `Bearer ${token}` };
+
+      const out = await req("POST", "/api/admin/logout", undefined, auth);
+      check("logout → 200", out.status === 200);
+      check("loggedOut true", out.json?.data?.loggedOut === true);
+
+      const meAfter = await req("GET", "/api/admin/me", undefined, auth);
+      check("token dicabut → 401", meAfter.status === 401);
+
+      const patchAfter = await req("PATCH", `/api/reports/${createdId}/status`, { status: "Selesai" }, auth);
+      check("token lama tidak bisa dipakai lagi", patchAfter.status === 401);
+
+      const relogin = await req("POST", "/api/admin/login", { password: "admin123" });
+      check("bisa login lagi setelah logout", relogin.status === 200);
+      token = relogin.json?.data?.token;
+    }
+
+    section("Admin — rate limit login");
+    {
+      // Batasnya 5 percobaan gagal per 10 menit per IP.
+      let last = null;
+      for (let i = 0; i < 5; i += 1) {
+        last = await req("POST", "/api/admin/login", { password: `salah-${i}` });
+      }
+      check("percobaan gagal ke-5 masih 401", last?.status === 401, `dapat ${last?.status}`);
+
+      const blocked = await req("POST", "/api/admin/login", { password: "admin123" });
+      check("percobaan ke-6 diblokir → 429", blocked.status === 429, `dapat ${blocked.status}`);
+      check("kode error TOO_MANY_REQUESTS", blocked.json?.error?.code === "TOO_MANY_REQUESTS");
+      check("kata sandi benar pun ikut diblokir", !blocked.json?.data?.token);
     }
 
     section("Routing & metode");

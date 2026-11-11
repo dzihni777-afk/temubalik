@@ -18,7 +18,7 @@ const http = require("node:http");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
-const { sendJson, sendError, HttpError } = require("./http");
+const { sendJson, sendError, HttpError, drainBody } = require("./http");
 const reportsRoute = require("./routes/reports");
 const miscRoute = require("./routes/misc");
 
@@ -146,6 +146,9 @@ const server = http.createServer(async (req, res) => {
 
     await serveStatic(req, res, pathname);
   } catch (err) {
+    // Body yang belum dibaca harus dibuang, kalau tidak koneksi keep-alive
+    // bisa tertahan menunggu data yang tidak akan pernah dikonsumsi.
+    drainBody(req);
     sendError(res, err);
   }
 });

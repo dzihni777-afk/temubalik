@@ -94,4 +94,16 @@ function readJsonBody(req) {
   });
 }
 
-module.exports = { HttpError, sendJson, sendError, readJsonBody, MAX_BODY_BYTES };
+/**
+ * Buang sisa body tanpa menyimpannya.
+ * Dipakai saat request ditolak lebih awal (mis. token admin tidak sah):
+ * kalau body dibiarkan mengalir, koneksi keep-alive bisa kacau untuk
+ * request berikutnya di socket yang sama.
+ */
+function drainBody(req) {
+  if (req.readableEnded || req.destroyed) return;
+  req.on("error", () => {});
+  req.resume();
+}
+
+module.exports = { HttpError, sendJson, sendError, readJsonBody, drainBody, MAX_BODY_BYTES };

@@ -6,8 +6,9 @@ Pengguna mengisi formulir, menerima kode laporan, lalu memantau status barangnya
 Tidak ada build step, tidak ada dependency. Cukup buka filenya di browser.
 
 Ada juga **backend Node.js opsional** di `server/` (tanpa dependency) yang
-sekaligus menyajikan file front-end. Backend itu **belum disambung** ke halaman
-dan baru selesai separuh — lihat [README-backend.md](README-backend.md).
+sekaligus menyajikan file front-end. Semua endpoint API sudah jalan (termasuk
+login admin, ubah status, hapus, dan statistik), tetapi halaman masih memakai
+`localStorage` — lihat [README-backend.md](README-backend.md).
 
 ---
 
@@ -100,6 +101,7 @@ server/                 Backend Node.js (opsional, lihat README-backend.md)
 ├── http.js             Helper JSON, error, baca body
 ├── db.js               Baca/tulis gudang data JSON
 ├── validate.js         Validasi sisi server
+├── auth.js             Hash kata sandi, token admin, rate limit login
 ├── routes/             reports.js, misc.js
 └── storage/            reports.json (dibuat otomatis, tidak di-commit)
 ```
@@ -162,7 +164,8 @@ halaman lain tidak perlu diubah.
 
 Kerangka klien API-nya sudah disiapkan di `js/api-client.js` (belum dipakai
 halaman), dengan nama fungsi yang sama: `Api.list`, `Api.getById`, `Api.create`,
-`Api.updateStatus`, `Api.remove`.
+`Api.stats`, `Api.updateStatus`, `Api.remove`, plus `Api.adminLogin`,
+`Api.adminMe`, `Api.adminLogout`.
 
 ---
 
@@ -204,7 +207,7 @@ npm run test:api
 ```
 
 Hasil yang diharapkan: **159 pemeriksaan lulus** (30 storage + 46 DOM + 29 form + 20 browser + 34 interaksi)
-dan **60 pemeriksaan API**.
+dan **101 pemeriksaan API**.
 
 ---
 

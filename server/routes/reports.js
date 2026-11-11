@@ -2,23 +2,25 @@
    TemuBalik — Route: /api/reports
    ==========================================================================
 
-   STATUS PENGERJAAN (lihat juga README-backend.md):
+   Daftar endpoint:
 
-   [SELESAI]  GET    /api/reports            daftar + filter + pencarian + paginasi
-   [SELESAI]  GET    /api/reports/:id        ambil satu laporan
-   [SELESAI]  POST   /api/reports            buat laporan baru (validasi + nomor otomatis)
-   [BELUM]    PATCH  /api/reports/:id/status ubah status Aktif/Selesai
-   [BELUM]    DELETE /api/reports/:id        hapus laporan
+   [PUBLIK]  GET    /api/reports             daftar + filter + pencarian + paginasi
+   [PUBLIK]  GET    /api/reports/:id         ambil satu laporan
+   [PUBLIK]  POST   /api/reports             buat laporan baru (validasi + nomor otomatis)
+   [ADMIN]   PATCH  /api/reports/:id/status  ubah status Aktif/Selesai
+   [ADMIN]   DELETE /api/reports/:id         hapus laporan
 
-   Dua endpoint terakhir sengaja dikosongkan (stub) supaya jelas mana yang
-   belum jadi. Lihat komentar TODO di masing-masing handler.
+   Endpoint bertanda [ADMIN] wajib menyertakan header:
+     Authorization: Bearer <token>
+   Token didapat dari POST /api/admin/login (lihat routes/misc.js).
    ========================================================================== */
 
 "use strict";
 
 const db = require("../db");
-const { HttpError, sendJson, readJsonBody } = require("../http");
-const { validateCreate } = require("../validate");
+const { HttpError, sendJson, readJsonBody, drainBody } = require("../http");
+const { validateCreate, validateStatus } = require("../validate");
+const { requireAdmin } = require("../auth");
 
 const PAGE_SIZE_DEFAULT = 9;
 const PAGE_SIZE_MAX = 100;
@@ -152,56 +154,58 @@ async function createReport(req, res) {
   sendJson(res, 201, { data: report });
 }
 
-/** PATCH /api/reports/:id/status — BELUM DIKERJAKAN */
+/** PATCH /api/reports/:id/status — ubah status (butuh token admin) */
 async function updateStatus(id, req, res) {
-  /* ---------------------------------------------------------------
-     TODO: implementasikan.
-     Rencana langkah:
-       1. const body = await readJsonBody(req);
-       2. const { ok, errors, value } = validateStatus(body);
-          → kalau !ok lempar HttpError(422, "VALIDATION_ERROR", ..., errors)
-       3. await db.mutate((rows) => {
-            const row = rows.find(r => r.id.toUpperCase() === id.toUpperCase());
-            if (!row) throw new HttpError(404, "REPORT_NOT_FOUND", ...);
-            row.status = value.status;
-            row.updatedAt = new Date().toISOString();
-            return row;
-          });
-       4. sendJson(res, 200, { data: updated });
-     --------------------------------------------------------------- */
-  void id;
-  void req;
-  void res;
+  try {
+    requireAdmin(req);
+  } catch (err) {
+    drainBody(req);
+    throw err;
+  }
 
-  throw new HttpError(
-    501,
-    "NOT_IMPLEMENTED",
-    "Endpoint ubah status belum diimplementasikan (lihat TODO di server/routes/reports.js)."
-  );
+  const body = await readJsonBody(req);
+  const { ok, errors, value } = validateStatus(body);
+
+  if (!ok) {
+    throw new HttpError(422, "VALIDATION_ERROR", "Status yang dikirim tidak valid.", errors);
+  }
+
+  const updated = await db.mutate((rows) => {
+    const key = String(id).trim().toUpperCase();
+    const row = rows.find((r) => String(r.id).toUpperCase() === key);
+    if (!row) {
+      throw new HttpError(404, "REPORT_NOT_FOUND", `Laporan dengan kode "${id}" tidak ditemukan.`);
+    }
+
+    row.status = value.status;
+    row.updatedAt = new Date().toISOString();
+    return { ...row };
+  });
+
+  sendJson(res, 200, { data: updated });
 }
 
-/** DELETE /api/reports/:id — BELUM DIKERJAKAN */
+/** DELETE /api/reports/:id — hapus laporan (butuh token admin) */
 async function deleteReport(id, req, res) {
-  /* ---------------------------------------------------------------
-     TODO: implementasikan.
-     Rencana langkah:
-       1. await db.mutate((rows) => {
-            const idx = rows.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
-            if (idx < 0) throw new HttpError(404, "REPORT_NOT_FOUND", ...);
-            rows.splice(idx, 1);
-          });
-       2. sendJson(res, 200, { data: { id, deleted: true } });
-       3. Nanti tambahkan juga pengecekan token admin (lihat routes/admin.js).
-     --------------------------------------------------------------- */
-  void id;
-  void req;
-  void res;
+  try {
+    requireAdmin(req);
+  } catch (err) {
+    drainBody(req);
+    throw err;
+  }
 
-  throw new HttpError(
-    501,
-    "NOT_IMPLEMENTED",
-    "Endpoint hapus laporan belum diimplementasikan (lihat TODO di server/routes/reports.js)."
-  );
+  const deleted = await db.mutate((rows) => {
+    const key = String(id).trim().toUpperCase();
+    const idx = rows.findIndex((r) => String(r.id).toUpperCase() === key);
+    if (idx < 0) {
+      throw new HttpError(404, "REPORT_NOT_FOUND", `Laporan dengan kode "${id}" tidak ditemukan.`);
+    }
+
+    const [removed] = rows.splice(idx, 1);
+    return { id: removed.id, deleted: true, namaBarang: removed.namaBarang || "-" };
+  });
+
+  sendJson(res, 200, { data: deleted });
 }
 
 /* ---------------------------- Router ---------------------------- */

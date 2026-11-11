@@ -7,19 +7,52 @@
 
    Kalau nanti mau memindahkan halaman ke backend, ganti isi fungsi di
    js/storage.js agar memanggil Api.* di bawah — nama fungsinya sudah
-   dibuat sama (getAll, getById, create, updateStatus, remove) supaya
-   file lain tidak perlu diubah.
+   dibuat sama (getAll, getById, create, updateStatus, remove, stats)
+   supaya file lain tidak perlu diubah.
+
+   Endpoint ubah status / hapus / cek sesi butuh token admin.
+   Pakai Api.adminLogin("sandi") dulu; token disimpan di memori modul ini
+   (bukan localStorage) supaya tidak ikut terbaca skrip lain.
    ========================================================================== */
 
 (function (global) {
   "use strict";
 
   const BASE = global.TEMUBALIK_API_BASE || "/api";
+  const TOKEN_KEY = "temubalik.api.token";
+
+  let token = null;
+
+  /* Token disimpan di sessionStorage kalau ada, supaya tidak hilang saat
+     pindah halaman tapi tetap hilang ketika tab ditutup. */
+  function readStoredToken() {
+    try {
+      return global.sessionStorage?.getItem(TOKEN_KEY) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStoredToken(value) {
+    token = value || null;
+    try {
+      if (value) global.sessionStorage?.setItem(TOKEN_KEY, value);
+      else global.sessionStorage?.removeItem(TOKEN_KEY);
+    } catch {
+      /* sessionStorage bisa diblokir (mode privat) — token tetap di memori */
+    }
+  }
+
+  token = readStoredToken();
 
   async function request(method, path, body) {
+    const headers = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     const res = await fetch(BASE + path, {
       method,
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
@@ -35,6 +68,8 @@
       err.status = res.status;
       err.code = payload?.error?.code;
       err.fields = payload?.error?.fields || null;
+      // Token tidak berlaku lagi: buang supaya tidak dipakai terus.
+      if (res.status === 401) writeStoredToken(null);
       throw err;
     }
 
@@ -42,7 +77,7 @@
   }
 
   const Api = {
-    /** [SELESAI] Ambil daftar laporan. */
+    /** Ambil daftar laporan. */
     async list({ q = "", kategori = "", status = "", lokasi = "", sort = "terbaru", limit = 9, offset = 0 } = {}) {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
@@ -57,7 +92,7 @@
       return { data, meta };
     },
 
-    /** [SELESAI] Ambil satu laporan; null kalau tidak ada (bukan error). */
+    /** Ambil satu laporan; null kalau tidak ada (bukan error). */
     async getById(id) {
       try {
         const { data } = await request("GET", `/reports/${encodeURIComponent(id)}`);
@@ -68,32 +103,65 @@
       }
     },
 
-    /** [SELESAI] Buat laporan baru. Melempar err.fields kalau validasi gagal. */
+    /** Buat laporan baru. Melempar err.fields kalau validasi gagal. */
     async create(payload) {
       const { data } = await request("POST", "/reports", payload);
       return data;
     },
 
-    /* ------------------------------------------------------------------
-       TODO: dua fungsi di bawah belum jalan karena endpoint-nya masih stub
-       di server (selalu membalas 501). Kerjakan endpoint dulu di
-       server/routes/reports.js, baru buka komentar di sini.
-       ------------------------------------------------------------------ */
-
-    /** [BELUM] Ubah status laporan. */
-    async updateStatus(id, status) {
-      void id;
-      void status;
-      throw new Error("Api.updateStatus belum diimplementasikan.");
-      // const { data } = await request("PATCH", `/reports/${encodeURIComponent(id)}/status`, { status });
-      // return data;
+    /** Ringkasan jumlah laporan. */
+    async stats() {
+      const { data } = await request("GET", "/stats");
+      return data;
     },
 
-    /** [BELUM] Hapus laporan. */
+    /** Ubah status laporan (butuh token admin). */
+    async updateStatus(id, status) {
+      const { data } = await request("PATCH", `/reports/${encodeURIComponent(id)}/status`, { status });
+      return data;
+    },
+
+    /** Hapus laporan (butuh token admin). */
     async remove(id) {
-      void id;
-      throw new Error("Api.remove belum diimplementasikan.");
-      // return request("DELETE", `/reports/${encodeURIComponent(id)}`);
+      const { data } = await request("DELETE", `/reports/${encodeURIComponent(id)}`);
+      return data;
+    },
+
+    /* ----------------------------- Admin ----------------------------- */
+
+    /** Tukar kata sandi dengan token; token disimpan untuk request berikutnya. */
+    async adminLogin(password) {
+      const { data } = await request("POST", "/admin/login", { password });
+      writeStoredToken(data.token);
+      return data;
+    },
+
+    /** Cek token masih berlaku; null kalau belum/tidak lagi login. */
+    async adminMe() {
+      if (!token) return null;
+      try {
+        const { data } = await request("GET", "/admin/me");
+        return data;
+      } catch (err) {
+        if (err.status === 401) return null;
+        throw err;
+      }
+    },
+
+    /** Cabut token di server lalu lupakan di klien. */
+    async adminLogout() {
+      if (!token) return false;
+      try {
+        await request("POST", "/admin/logout");
+      } finally {
+        writeStoredToken(null);
+      }
+      return true;
+    },
+
+    /** true kalau klien sedang memegang token. */
+    hasToken() {
+      return Boolean(token);
     },
   };
 
