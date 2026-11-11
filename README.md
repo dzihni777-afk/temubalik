@@ -3,7 +3,11 @@
 Front-end murni (**HTML + CSS + JavaScript**) untuk pelaporan barang hilang.
 Pengguna mengisi formulir, menerima kode laporan, lalu memantau status barangnya.
 
-Tidak ada backend, tidak ada build step, tidak ada dependency. Cukup buka filenya di browser.
+Tidak ada build step, tidak ada dependency. Cukup buka filenya di browser.
+
+Ada juga **backend Node.js opsional** di `server/` (tanpa dependency) yang
+sekaligus menyajikan file front-end. Backend itu **belum disambung** ke halaman
+dan baru selesai separuh — lihat [README-backend.md](README-backend.md).
 
 ---
 
@@ -27,6 +31,16 @@ php -S localhost:8000
 ```
 
 Lalu buka <http://localhost:8000>.
+
+**Cara 3 — dengan backend Node.js (opsional)**
+
+```bash
+npm start        # sama dengan: node server/server.js
+```
+
+Buka <http://localhost:3000>. Server ini menyajikan front-end sekaligus API di
+`/api`. Front-end masih memakai `localStorage`, jadi backend hanya untuk
+eksplorasi API — lihat [README-backend.md](README-backend.md).
 
 > Dengan server, data awal diambil dari `data/data.json` lewat `fetch`.
 > Tanpa server (`file://`), otomatis beralih ke `data/data-seed.js` karena
@@ -80,6 +94,14 @@ temubalik/
 │
 ├── assets/img/         Ilustrasi SVG per kategori barang
 └── tests/              Uji otomatis (opsional, lihat bawah)
+
+server/                 Backend Node.js (opsional, lihat README-backend.md)
+├── server.js           HTTP server + penyaji file statis
+├── http.js             Helper JSON, error, baca body
+├── db.js               Baca/tulis gudang data JSON
+├── validate.js         Validasi sisi server
+├── routes/             reports.js, misc.js
+└── storage/            reports.json (dibuat otomatis, tidak di-commit)
 ```
 
 ---
@@ -138,6 +160,10 @@ Seluruh akses data melewati `js/storage.js`. Untuk menyambung ke backend nanti,
 cukup ganti isi fungsi-fungsi di file itu dengan pemanggilan `fetch()` ke API —
 halaman lain tidak perlu diubah.
 
+Kerangka klien API-nya sudah disiapkan di `js/api-client.js` (belum dipakai
+halaman), dengan nama fungsi yang sama: `Api.list`, `Api.getById`, `Api.create`,
+`Api.updateStatus`, `Api.remove`.
+
 ---
 
 ## Batasan (penting)
@@ -172,9 +198,13 @@ node tests/form.test.cjs
 # uji di browser asli (mode file://)
 node tests/browser.test.cjs
 node tests/interaksi.test.cjs
+
+# uji backend API (tanpa dependency, tanpa menyentuh data asli)
+npm run test:api
 ```
 
-Hasil yang diharapkan: **159 pemeriksaan lulus** (30 storage + 46 DOM + 29 form + 20 browser + 34 interaksi).
+Hasil yang diharapkan: **159 pemeriksaan lulus** (30 storage + 46 DOM + 29 form + 20 browser + 34 interaksi)
+dan **60 pemeriksaan API**.
 
 ---
 

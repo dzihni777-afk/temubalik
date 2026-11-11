@@ -1,0 +1,6 @@
+node_modules/
+server/storage/*.tmp
+
+# Gudang data backend dibuat otomatis dari data/data.json saat server pertama
+# kali dijalankan, jadi tidak perlu ikut di-commit.
+server/storage/reports.json
