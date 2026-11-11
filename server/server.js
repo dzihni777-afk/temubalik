@@ -14,6 +14,10 @@
 
 "use strict";
 
+// Muat .env SEBELUM modul lain membacanya (server/auth.js membaca
+// ADMIN_PASSWORD_HASH saat pertama kali di-require).
+require("./env").loadEnv();
+
 const http = require("node:http");
 const fs = require("node:fs/promises");
 const path = require("node:path");

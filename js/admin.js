@@ -1,5 +1,10 @@
 /* ==========================================================================
-   TemuBalik — Panel admin (demo, bukan keamanan sungguhan)
+   TemuBalik — Panel admin
+
+   Login memakai Firebase Auth (email + kata sandi) kalau Firebase aktif.
+   Kalau Firebase tidak aktif, otomatis kembali ke mode demo lokal supaya
+   situs tetap bisa dipakai. Kata sandi demo TIDAK ditulis di file ini —
+   nilainya berasal dari .env lewat js/firebase-config.js.
    ========================================================================== */
 
 (function () {
@@ -8,12 +13,15 @@
   const loginGate = document.getElementById("loginGate");
   if (!loginGate) return;
 
-  // Catatan: pada front-end murni, "kata sandi" ini hanya pembatas UI.
-  // Jangan gunakan pola ini untuk aplikasi produksi.
-  const DEMO_PASSWORD = "admin123";
-
   const loginForm = document.getElementById("loginForm");
+  const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
+  const loginBtn = document.getElementById("loginBtn");
+  const googleWrap = document.getElementById("googleWrap");
+  const googleBtn = document.getElementById("googleBtn");
+  const loginHint = document.getElementById("loginHint");
+  const loginNote = document.getElementById("loginNote");
+
   const panel = document.getElementById("adminPanel");
   const logoutBtn = document.getElementById("logoutBtn");
 
@@ -25,6 +33,42 @@
   let allReports = [];
 
   initSharedUI();
+
+  /* ---------------------------------------------------------------- */
+  /* Penanda mode penyimpanan                                          */
+  /* ---------------------------------------------------------------- */
+  async function showStorageMode() {
+    const mode = await Store.mode();
+
+    // Tombol Google hanya berguna kalau Firebase aktif.
+    if (googleWrap && Store.canUseGoogle()) {
+      googleWrap.classList.remove("hidden");
+    }
+
+    if (mode === "firebase") return;
+
+    // Mode lokal: jelaskan ke pengguna, jangan diam-diam.
+    if (loginHint) {
+      loginHint.textContent =
+        "Firebase tidak aktif, panel berjalan dalam mode demo lokal.";
+    }
+    if (loginNote) {
+      // Kata sandi demo dibaca dari konfigurasi (berasal dari .env).
+      // Kalau kosong, jangan tampilkan apa pun — login demo memang mati.
+      const demo = String((window.TEMUBALIK_FIREBASE || {}).demoPassword || "");
+      if (demo) {
+        const safe = demo.replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[c]));
+        loginNote.innerHTML =
+          `Kata sandi demo: <span class="mono" style="font-weight:700; color: var(--primary);">${safe}</span>`;
+      } else {
+        loginNote.textContent = "Login demo belum diatur di .env.";
+      }
+    }
+  }
+
+  showStorageMode();
 
   /* ---------------------------------------------------------------- */
   /* Auth gate                                                         */
@@ -41,45 +85,148 @@
     passwordInput.value = "";
   }
 
-  if (Store.isAdmin()) showPanel();
+  function setError(field, message) {
+    const wrap = document.querySelector(`[data-field="${field}"]`);
+    const msg = document.querySelector(`[data-error-for="${field}"]`);
+    if (wrap) wrap.classList.add("invalid");
+    if (msg) msg.textContent = message;
+  }
 
-  loginForm.addEventListener("submit", (e) => {
+  function clearErrors() {
+    document.querySelectorAll(".field.invalid").forEach((f) => f.classList.remove("invalid"));
+    document.querySelectorAll(".error-msg").forEach((m) => (m.textContent = ""));
+  }
+
+  // Sesi Firebase dipulihkan otomatis; sesi demo dibaca dari localStorage.
+  // Tunggu dulu supaya panel tidak "berkedip" ke halaman login.
+  (async function restoreSession() {
+    const loggedIn = await Store.waitAdmin();
+    if (loggedIn) showPanel();
+    else showLogin();
+  })();
+
+  Store.onAdminChange((loggedIn) => {
+    if (loggedIn) showPanel();
+    else showLogin();
+  });
+
+  loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    clearErrors();
 
-    const wrap = document.querySelector('[data-field="password"]');
-    const msg = document.querySelector('[data-error-for="password"]');
-    wrap.classList.remove("invalid");
+    const email = (emailInput.value || "").trim();
+    const password = passwordInput.value || "";
 
-    if (!passwordInput.value.trim()) {
-      wrap.classList.add("invalid");
-      msg.textContent = "Kata sandi wajib diisi.";
+    // Email hanya wajib saat Firebase aktif.
+    if (Store.usingFirebase()) {
+      if (!email) {
+        setError("email", "Email wajib diisi.");
+        emailInput.focus();
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        setError("email", "Format email tidak valid.");
+        emailInput.focus();
+        return;
+      }
+    }
+
+    if (!password.trim()) {
+      setError("password", "Kata sandi wajib diisi.");
+      passwordInput.focus();
       return;
     }
 
-    if (passwordInput.value !== DEMO_PASSWORD) {
-      wrap.classList.add("invalid");
-      msg.textContent = "Kata sandi salah. Coba lagi.";
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Memeriksa...";
+
+    try {
+      await Store.signInAdmin(email, password);
+      showPanel();
+      toast("Berhasil masuk sebagai admin.", "success");
+    } catch (err) {
+      const code = err && err.code ? String(err.code) : "";
+      const message = String((err && err.message) || "");
+
+      if (
+        code.includes("invalid-credential") ||
+        code.includes("wrong-password") ||
+        code.includes("user-not-found") ||
+        code.includes("invalid-email") ||
+        /salah|invalid/i.test(message)
+      ) {
+        setError("password", "Email atau kata sandi salah. Coba lagi.");
+      } else if (code.includes("too-many-requests")) {
+        setError("password", "Terlalu banyak percobaan. Coba lagi beberapa saat.");
+      } else if (code.includes("network-request-failed")) {
+        setError("password", "Tidak ada koneksi ke Firebase. Periksa internet Anda.");
+      } else if (code.includes("operation-not-allowed")) {
+        setError(
+          "password",
+          "Login email/kata sandi belum diaktifkan di Firebase Console."
+        );
+      } else {
+        setError("password", message || "Gagal masuk. Coba lagi.");
+      }
+
       passwordInput.select();
-      return;
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Masuk";
     }
-
-    Store.setAdminSession(true);
-    showPanel();
-    toast("Berhasil masuk sebagai admin.", "success");
   });
 
   logoutBtn.addEventListener("click", async () => {
     const ok = await confirmDialog({
       title: "Keluar dari panel admin?",
-      message: "Anda perlu memasukkan kata sandi kembali untuk mengakses panel ini.",
+      message: "Anda perlu masuk kembali untuk mengakses panel ini.",
       confirmText: "Ya, keluar",
     });
     if (!ok) return;
 
-    Store.setAdminSession(false);
+    try {
+      await Store.signOutAdmin();
+    } catch {
+      /* tetap keluar dari tampilan walau permintaan gagal */
+    }
     showLogin();
     toast("Anda telah keluar.", "info");
   });
+
+  /* ---------------------------------------------------------------- */
+  /* Login dengan Google                                              */
+  /* ---------------------------------------------------------------- */
+  if (googleBtn) {
+    googleBtn.addEventListener("click", async () => {
+      clearErrors();
+      googleBtn.disabled = true;
+
+      try {
+        await Store.signInAdminWithGoogle();
+        showPanel();
+        toast("Berhasil masuk dengan Google.", "success");
+      } catch (err) {
+        const code = String((err && err.code) || "");
+        const message = String((err && err.message) || "");
+
+        if (code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) {
+          toast("Jendela login Google ditutup. Coba lagi bila perlu.", "info");
+        } else if (code.includes("popup-blocked")) {
+          toast("Popup diblokir browser. Izinkan popup untuk situs ini.", "error");
+        } else if (code.includes("unauthorized-domain")) {
+          toast("Domain ini belum didaftarkan di Firebase Authentication → Settings → Authorized domains.", "error");
+        } else if (code.includes("operation-not-allowed")) {
+          toast("Provider Google belum diaktifkan di Firebase Console.", "error");
+        } else if (/permission|insufficient/i.test(message)) {
+          toast("Akun Google ini bukan admin. Daftarkan emailnya di firestore.rules.", "error");
+        } else {
+          toast(message || "Gagal masuk dengan Google.", "error");
+        }
+      } finally {
+        googleBtn.disabled = false;
+      }
+    });
+  }
 
   /* ---------------------------------------------------------------- */
   /* Data                                                              */
@@ -206,12 +353,14 @@
 
     if (act === "toggle") {
       const next = report.status === "Selesai" ? "Aktif" : "Selesai";
+      btn.disabled = true;
       try {
         await Store.updateStatus(id, next);
         toast(`Status ${id} diubah menjadi ${next}.`, "success");
         await loadReports();
       } catch (err) {
-        toast(err.message || "Gagal mengubah status.", "error");
+        toast(friendlyError(err, "Gagal mengubah status."), "error");
+        btn.disabled = false;
       }
       return;
     }
@@ -225,15 +374,29 @@
       });
       if (!ok) return;
 
+      btn.disabled = true;
       try {
         await Store.remove(id);
         toast("Laporan berhasil dihapus.", "success");
         await loadReports();
       } catch (err) {
-        toast(err.message || "Gagal menghapus laporan.", "error");
+        toast(friendlyError(err, "Gagal menghapus laporan."), "error");
+        btn.disabled = false;
       }
     }
   });
+
+  /** Terjemahkan error Firestore yang umum jadi pesan yang bisa dimengerti. */
+  function friendlyError(err, fallback) {
+    const message = String((err && err.message) || "");
+    if (/permission|insufficient/i.test(message)) {
+      return "Ditolak oleh Security Rules. Pastikan akun ini terdaftar sebagai admin.";
+    }
+    if (/network|offline|unavailable/i.test(message)) {
+      return "Tidak ada koneksi ke Firebase. Periksa internet Anda.";
+    }
+    return message || fallback;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Filter events                                                     */

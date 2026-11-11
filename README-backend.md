@@ -72,8 +72,13 @@ Kata sandi admin dibaca dari environment variable, dengan urutan prioritas:
 
 1. `ADMIN_PASSWORD_HASH` — **disarankan**, sha256 hex dari kata sandi.
 2. `ADMIN_PASSWORD` — teks biasa, khusus pengembangan lokal.
-3. Kalau keduanya kosong → kata sandi demo `admin123` (sama dengan panel
-   admin front-end) dan server mencetak peringatan saat start.
+3. `ADMIN_DEMO_PASSWORD` — kata sandi demo, dibaca dari `.env`.
+4. Kalau **ketiganya kosong** → **login admin dinonaktifkan**. Server mencetak
+   pesan error saat start, dan semua percobaan login ditolak.
+
+> Nilai-nilai itu diambil dari file `.env` di root proyek (dibaca otomatis oleh
+> `server/env.js`). Tidak ada kata sandi yang ditulis di dalam kode.
+> Salin contohnya dulu: `cp .env.example .env`
 
 Membuat hash:
 
@@ -259,8 +264,10 @@ rate limit login, serta pemisahan file statis yang tidak boleh diakses.
 
 Ini backend untuk belajar, **belum** siap produksi:
 
-1. **Kata sandi demo.** Tanpa `ADMIN_PASSWORD_HASH`, server memakai `admin123`.
-   Selalu set env tersebut sebelum dipakai di luar lokal.
+1. **Kata sandi demo.** Tanpa `ADMIN_PASSWORD_HASH`, server memakai
+   `ADMIN_DEMO_PASSWORD` dari `.env`. Kalau itu juga kosong, login admin
+   **dinonaktifkan** (bukan memakai kata sandi bawaan). Selalu set env tersebut
+   sebelum dipakai di luar lokal.
 2. **Token di memori.** Restart server menghapus semua sesi; tidak cocok untuk
    beberapa proses sekaligus. Pindahkan ke database untuk produksi.
 3. **Belum ada HTTPS.** Token dikirim di header, jadi wajib HTTPS kalau publik.

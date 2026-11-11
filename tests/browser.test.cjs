@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-const ROOT = "C:/Users/ian/Documents/temubalik";
+const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
 const CHROME = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe";
 
 let pass = 0, fail = 0;

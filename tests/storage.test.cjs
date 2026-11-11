@@ -3,7 +3,7 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const dir = "C:/Users/ian/Documents/temubalik";
+const dir = process.env.TB_ROOT || path.resolve(__dirname, "..");
 
 /* --- Stub browser env --- */
 const store = new Map();

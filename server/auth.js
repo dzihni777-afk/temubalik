@@ -16,7 +16,11 @@
    Variabel lingkungan yang dipakai:
      ADMIN_PASSWORD_HASH   sha256 hex dari kata sandi (cara yang disarankan)
      ADMIN_PASSWORD        kata sandi teks biasa (khusus pengembangan lokal)
+     ADMIN_DEMO_PASSWORD   kata sandi demo saat dua variabel di atas kosong
      ADMIN_TOKEN_TTL_MS    masa berlaku token, default 2 jam
+
+   Nilai-nilai itu dibaca dari file .env di root proyek (lihat server/env.js).
+   Tidak ada kata sandi yang ditulis di dalam kode.
    ========================================================================== */
 
 "use strict";
@@ -25,9 +29,10 @@ const crypto = require("node:crypto");
 
 const { HttpError } = require("./http");
 
-/* Kata sandi demo. Sama dengan yang dipakai panel admin front-end
-   (js/admin.js) supaya mudah dicoba, tapi TIDAK untuk produksi. */
-const DEMO_PASSWORD = "admin123";
+/* Kata sandi demo dibaca dari .env, TIDAK ditulis di kode.
+   Dipakai hanya supaya proyek tetap bisa dicoba tanpa konfigurasi.
+   Di produksi, isi ADMIN_PASSWORD_HASH dan biarkan variabel ini kosong. */
+const DEMO_PASSWORD = String(process.env.ADMIN_DEMO_PASSWORD || "");
 
 const TOKEN_TTL_MS = (() => {
   const raw = Number(process.env.ADMIN_TOKEN_TTL_MS);
@@ -70,14 +75,30 @@ function resolvePasswordHash() {
     return { hash: sha256(plain), source: "ADMIN_PASSWORD" };
   }
 
-  console.warn(
-    `[auth] ADMIN_PASSWORD_HASH belum diatur — memakai kata sandi demo "${DEMO_PASSWORD}". ` +
-      "Ganti sebelum dipakai di luar lokal."
+  if (DEMO_PASSWORD) {
+    console.warn(
+      "[auth] ADMIN_PASSWORD_HASH belum diatur — memakai kata sandi demo dari .env " +
+        "(ADMIN_DEMO_PASSWORD). Ganti sebelum dipakai di luar lokal."
+    );
+    return { hash: sha256(DEMO_PASSWORD), source: "demo" };
+  }
+
+  // Tidak ada kata sandi sama sekali. JANGAN memakai nilai bawaan apa pun —
+  // itu sama saja membuka pintu admin untuk siapa pun. Login ditutup total
+  // sampai ADMIN_PASSWORD_HASH diisi di .env.
+  console.error(
+    "[auth] ADMIN_PASSWORD_HASH belum diatur dan ADMIN_DEMO_PASSWORD kosong. " +
+      "Login admin DINONAKTIFKAN sampai kata sandi diisi di file .env."
   );
-  return { hash: sha256(DEMO_PASSWORD), source: "demo" };
+  return { hash: "", source: "disabled" };
 }
 
 const passwordConfig = resolvePasswordHash();
+
+/** Apakah login admin mungkin dilakukan (ada kata sandi yang terpasang). */
+function isConfigured() {
+  return Boolean(passwordConfig.hash);
+}
 
 /** Bandingkan dua string hex dengan waktu tetap (anti timing attack). */
 function safeEqual(a, b) {
@@ -89,6 +110,8 @@ function safeEqual(a, b) {
 
 /** @returns {boolean} true kalau kata sandi cocok. */
 function checkPassword(candidate) {
+  // Kalau tidak ada kata sandi terpasang, tidak ada yang bisa cocok.
+  if (!passwordConfig.hash) return false;
   if (typeof candidate !== "string" || !candidate) return false;
   return safeEqual(sha256(candidate), passwordConfig.hash);
 }
@@ -220,6 +243,7 @@ module.exports = {
   MAX_FAILED_ATTEMPTS,
   ATTEMPT_WINDOW_MS,
   passwordSource: passwordConfig.source,
+  isConfigured,
   checkPassword,
   issueToken,
   findSession,

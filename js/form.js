@@ -319,7 +319,12 @@
 
       toast("Laporan berhasil dibuat.", "success");
     } catch (err) {
-      toast(err.message || "Terjadi kesalahan saat menyimpan laporan.", "error");
+      const message = String((err && err.message) || "");
+      if (/permission|insufficient/i.test(message)) {
+        toast("Server menolak penyimpanan. Periksa Security Rules Firestore Anda.", "error");
+      } else {
+        toast(message || "Terjadi kesalahan saat menyimpan laporan.", "error");
+      }
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Kirim Laporan";

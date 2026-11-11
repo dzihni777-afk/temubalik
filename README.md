@@ -5,14 +5,34 @@ Pengguna mengisi formulir, menerima kode laporan, lalu memantau status barangnya
 
 Tidak ada build step, tidak ada dependency. Cukup buka filenya di browser.
 
+**Database:** sekarang memakai **Firebase Firestore + Firebase Auth** (sudah
+terpasang dan aktif). Kalau Firebase tidak tersedia, situs otomatis kembali ke
+`localStorage` — jadi tidak pernah blank. Panduan pemasangan ada di
+[README-firebase.md](README-firebase.md), dan panduan deploy online di
+[README-deploy.md](README-deploy.md).
+
 Ada juga **backend Node.js opsional** di `server/` (tanpa dependency) yang
 sekaligus menyajikan file front-end. Semua endpoint API sudah jalan (termasuk
-login admin, ubah status, hapus, dan statistik), tetapi halaman masih memakai
-`localStorage` — lihat [README-backend.md](README-backend.md).
+login admin, ubah status, hapus, dan statistik), tetapi halaman **tidak**
+memakainya — halaman memakai Firebase. Lihat [README-backend.md](README-backend.md).
 
 ---
 
 ## Cara Menjalankan
+
+**Langkah 0 — siapkan `.env` (sekali saja)**
+
+Konfigurasi Firebase dan kata sandi **tidak ditulis di dalam kode**. Semuanya
+berasal dari file `.env` yang tidak ikut di-commit.
+
+```bash
+cp .env.example .env     # lalu isi nilainya
+npm run config           # menghasilkan js/firebase-config.js dari .env
+```
+
+Variabel yang perlu diisi ada di `.env.example` (nama variabelnya saja, tanpa
+nilai rahasia). Kalau `.env` kosong, situs tetap jalan dalam mode lokal —
+tidak error.
 
 **Cara 1 — paling cepat (tanpa server)**
 
@@ -40,7 +60,7 @@ npm start        # sama dengan: node server/server.js
 ```
 
 Buka <http://localhost:3000>. Server ini menyajikan front-end sekaligus API di
-`/api`. Front-end masih memakai `localStorage`, jadi backend hanya untuk
+`/api`. Front-end memakai Firebase, jadi backend hanya untuk
 eksplorasi API — lihat [README-backend.md](README-backend.md).
 
 > Dengan server, data awal diambil dari `data/data.json` lewat `fetch`.
@@ -59,7 +79,7 @@ eksplorasi API — lihat [README-backend.md](README-backend.md).
 | `detail.html` | Detail laporan: lightbox foto, kontak tersensor, ubah status |
 | `status.html` | Cek status via kode laporan + daftar "Laporan Saya" |
 | `tentang.html` | Penjelasan sistem, kontak, FAQ accordion |
-| `admin.html` | Panel admin: ubah status, hapus laporan (kata sandi `admin123`) |
+| `admin.html` | Panel admin: ubah status, hapus laporan (login Firebase Auth) |
 
 ---
 
@@ -96,8 +116,20 @@ temubalik/
 ├── assets/img/         Ilustrasi SVG per kategori barang
 └── tests/              Uji otomatis (opsional, lihat bawah)
 
+firebase.json           Konfigurasi deploy Firebase Hosting
+.firebaserc             Project default untuk Firebase CLI
+firestore.rules         Security Rules (WAJIB dipasang di Console)
+js/firebase-config.js   Konfigurasi Firebase (HASIL GENERATE dari .env)
+js/firebase-adapter.js  Adapter Firestore + Auth
+
+.env                    Variabel lingkungan + rahasia (TIDAK di-commit)
+.env.example            Contoh variabel lingkungan (aman dibagikan)
+scripts/
+└── gen-firebase-config.js  Membuat js/firebase-config.js dari .env
+
 server/                 Backend Node.js (opsional, lihat README-backend.md)
 ├── server.js           HTTP server + penyaji file statis
+├── env.js              Pembaca file .env (tanpa dependency)
 ├── http.js             Helper JSON, error, baca body
 ├── db.js               Baca/tulis gudang data JSON
 ├── validate.js         Validasi sisi server
@@ -143,43 +175,93 @@ server/                 Backend Node.js (opsional, lihat README-backend.md)
 ## Penyimpanan Data
 
 ```
-data/data.json ──fetch──┐
-   (fallback)           ├──► storage.js ──► render halaman
-localStorage ───────────┘
+Firebase Firestore ──┐
+   (utama)           ├──► storage.js ──► render halaman
+localStorage ────────┘
+   (cadangan otomatis)
+```
+Semua akses data melewati `js/storage.js`. Ia mencoba Firebase lebih dulu; kalau
+Firebase tidak tersedia (offline, Firestore belum diaktifkan, rules menolak),
+ia otomatis memakai `localStorage`. **Halaman tidak perlu diubah** dan situs
+tidak pernah blank.
+
+| Lokasi | Isi |
+| --- | --- |
+| Firestore `reports` | Seluruh laporan (lintas perangkat) |
+| Firestore `meta` | Counter nomor urut laporan |
+| Firebase Auth | Akun admin |
+| `localStorage` `temubalik.mine` | ID laporan milik perangkat ini |
+| `localStorage` `temubalik.draft` | Isi formulir yang belum dikirim |
+| `localStorage` `temubalik.theme` | Preferensi tema |
+| `localStorage` `temubalik.storage` | Paksa mode `local` / `firebase` (opsional) |
+
+---
+
+## Data sensitif & file `.env`
+
+Tidak ada kata sandi, kunci, atau konfigurasi project yang ditulis di dalam
+kode. Semuanya berasal dari `.env`:
+
+| Variabel | Dipakai untuk |
+| --- | --- |
+| `FIREBASE_*` | Konfigurasi Firebase (dihasilkan ke `js/firebase-config.js`) |
+| `FIREBASE_DATABASE_ID` | Nama database Firestore (`default` atau `(default)`) |
+| `FIREBASE_DEMO_PASSWORD` | Kata sandi demo mode lokal (kosong = login demo mati) |
+| `ADMIN_PASSWORD_HASH` | Kata sandi admin backend Node.js (disarankan, berupa hash) |
+| `ADMIN_DEMO_PASSWORD` | Kata sandi demo backend (kosong = login backend mati) |
+
+**Yang di-commit:** `.env.example` (nama variabel saja, tanpa nilai).
+**Yang TIDAK di-commit:** `.env` dan `js/firebase-config.js` (hasil generate).
+
+Alur kerjanya:
+
+```
+.env  ──[npm run config]──►  js/firebase-config.js  ──►  halaman web
+        (rahasia, tidak           (hasil generate,
+         di-commit)                 tidak di-commit)
 ```
 
-| Kunci `localStorage` | Isi |
-| --- | --- |
-| `temubalik.local` | Laporan baru yang dibuat di browser ini |
-| `temubalik.overrides` | Perubahan status pada laporan bawaan |
-| `temubalik.deleted` | ID laporan yang dihapus |
-| `temubalik.mine` | ID laporan milik pengguna ini |
-| `temubalik.draft` | Isi formulir yang belum dikirim |
-| `temubalik.theme` | Preferensi tema |
-| `temubalik.admin` | Penanda sesi admin |
+> **Soal `apiKey` Firebase Web:** nilai ini **bukan rahasia**. Firebase memang
+> mengirimnya ke browser setiap pengunjung, dan itu sesuai rancangan. Yang
+> melindungi data adalah **Security Rules** (`firestore.rules`). Memindahkannya
+> ke `.env` tidak menambah keamanan dari pengunjung — manfaatnya agar repo bisa
+> dibagikan tanpa menunjuk ke project Firebase yang hidup.
 
-Seluruh akses data melewati `js/storage.js`. Untuk menyambung ke backend nanti,
-cukup ganti isi fungsi-fungsi di file itu dengan pemanggilan `fetch()` ke API —
-halaman lain tidak perlu diubah.
+**Service account** (kunci admin Firebase) **tidak boleh** disimpan di repo
+sama sekali. Simpan di luar folder proyek, lalu tunjuk lewat
+`GOOGLE_APPLICATION_CREDENTIALS`. Untuk deploy, lebih aman pakai
+`firebase login` (tanpa file kunci).
 
-Kerangka klien API-nya sudah disiapkan di `js/api-client.js` (belum dipakai
-halaman), dengan nama fungsi yang sama: `Api.list`, `Api.getById`, `Api.create`,
-`Api.stats`, `Api.updateStatus`, `Api.remove`, plus `Api.adminLogin`,
-`Api.adminMe`, `Api.adminLogout`.
+Kalau `.env` tidak ada atau variabelnya kosong, aplikasi **tidak** memakai nilai
+bawaan yang lemah — fitur terkait dimatikan (login demo ditolak, bukan terbuka).
+
+Saat Firebase tidak aktif, kunci `temubalik.local`, `temubalik.overrides`, dan
+`temubalik.deleted` dipakai sebagai penyimpanan cadangan.
+
+Panduan pemasangan Firebase: [README-firebase.md](README-firebase.md).
+
+Klien untuk backend Node.js tetap tersedia di `js/api-client.js` (tidak dipakai
+halaman), dengan fungsi `Api.list`, `Api.getById`, `Api.create`, `Api.stats`,
+`Api.updateStatus`, `Api.remove`, `Api.adminLogin`, `Api.adminMe`,
+`Api.adminLogout`.
 
 ---
 
 ## Batasan (penting)
 
-Ini **purwarupa front-end**, bukan sistem produksi:
+Ini **purwarupa**, bukan sistem produksi:
 
-1. **Data tidak lintas perangkat.** Laporan hanya tersimpan di browser yang dipakai.
-2. **Foto disimpan sebagai base64** di `localStorage`, dengan kompresi agar hemat ruang.
-   Kuota `localStorage` sekitar 5MB, jadi jumlah foto besar terbatas.
-3. **Login admin bukan keamanan nyata.** Kata sandi (`admin123`) hanya pembatas UI
-   di sisi klien dan bisa dilihat siapa pun yang membuka DevTools. Jangan dipakai produksi.
-4. **Kode laporan berurutan per hari**, bisa bentrok bila dua orang submit bersamaan
-   pada waktu yang sama di server sungguhan.
+1. **Wajib memasang Security Rules** (`firestore.rules`) dan mengaktifkan
+   Firestore + Auth di Firebase Console. Tanpa itu, aplikasi jatuh ke mode
+   lokal dan data tidak lintas perangkat.
+2. **Foto disimpan sebagai base64** di dalam dokumen Firestore. Batas satu dokumen
+   adalah 1 MiB, jadi foto besar bisa gagal. Untuk produksi, pindahkan foto ke
+   Firebase Storage.
+3. **Login admin memakai Firebase Auth**, dan izin ubah/hapus ditegakkan oleh
+   Security Rules di `firestore.rules` — bukan sekadar UI. Tetap wajib memasang
+   rules tersebut, kalau tidak Firestore memakai default yang menolak semua.
+4. **Nomor laporan memakai transaksi**, jadi dua orang yang submit bersamaan
+   tidak akan mendapat nomor yang sama.
 
 ---
 
@@ -204,10 +286,19 @@ node tests/interaksi.test.cjs
 
 # uji backend API (tanpa dependency, tanpa menyentuh data asli)
 npm run test:api
+
+# uji integrasi Firebase (tanpa kredensial, tanpa menyentuh data asli)
+node tests/firebase-mock.test.cjs
+node tests/firebase-integration.test.cjs
+node tests/firebase.test.cjs
 ```
 
-Hasil yang diharapkan: **159 pemeriksaan lulus** (30 storage + 46 DOM + 29 form + 20 browser + 34 interaksi)
-dan **101 pemeriksaan API**.
+Hasil yang diharapkan: **159 pemeriksaan lulus** (30 storage + 46 DOM + 29 form
++ 20 browser + 34 interaksi), **101 pemeriksaan API**, dan **90 pemeriksaan
+Firebase** (38 mock + 19 integrasi + 33 offline).
+
+Uji halaman memaksa mode lokal lewat `localStorage.setItem("temubalik.storage",
+"local")`, jadi tidak bergantung pada jaringan maupun data Firebase Anda.
 
 ---
 

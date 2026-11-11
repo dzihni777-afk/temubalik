@@ -19,6 +19,10 @@ async function load() {
     resources: "usable",
     pretendToBeVisual: true,
     virtualConsole: vc,
+    beforeParse(window) {
+      // Uji ini menguji penyimpanan lokal, bukan Firebase.
+      window.localStorage.setItem("temubalik.storage", "local");
+    },
   });
 
   await new Promise((r) => {

@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
+    "config": "node scripts/gen-firebase-config.js",
+    "prestart": "node scripts/gen-firebase-config.js",
     "test:api": "node tests/api.test.cjs"
   },
   "engines": {

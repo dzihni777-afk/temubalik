@@ -203,6 +203,8 @@
   </footer>
 
   <script src="js/utils.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/firebase-adapter.js"></script>
   <script src="js/storage.js"></script>
   <script>
     (async function initHome() {
@@ -217,12 +219,13 @@
           <div class="skeleton sk-line w40" style="margin-bottom:18px"></div>
         </div>`).join("");
 
-      try {
-        const [all, stats] = await Promise.all([Store.getAll(), Store.stats()]);
+      function render(all) {
+        const total = all.length;
+        const aktif = all.filter((r) => r.status === "Aktif").length;
 
-        document.getElementById("statTotal").textContent = stats.total;
-        document.getElementById("statAktif").textContent = stats.aktif;
-        document.getElementById("statSelesai").textContent = stats.selesai;
+        document.getElementById("statTotal").textContent = total;
+        document.getElementById("statAktif").textContent = aktif;
+        document.getElementById("statSelesai").textContent = total - aktif;
 
         // Hero card pakai laporan terbaru
         if (all.length) {
@@ -267,6 +270,11 @@
               <span class="report-code">${escapeHtml(r.id)}</span>
             </div>
           </a>`).join("");
+      }
+
+      try {
+        // Tampil cepat dari data lokal, lalu diperbarui dari Firebase bila siap.
+        await Store.getAllProgressive(render);
       } catch (err) {
         grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="emoji">⚠️</div><h3>Gagal memuat data</h3><p>${escapeHtml(err.message)}</p></div>`;
       }

@@ -4,3 +4,24 @@ server/storage/*.tmp
 # Gudang data backend dibuat otomatis dari data/data.json saat server pertama
 # kali dijalankan, jadi tidak perlu ikut di-commit.
 server/storage/reports.json
+
+# ---------------------------------------------------------------------------
+# KREDENSIAL — JANGAN PERNAH DI-COMMIT
+# Service account Firebase punya akses penuh ke project. Kalau file ini
+# sampai masuk repo/publik, siapa pun bisa membaca & menghapus seluruh data.
+# ---------------------------------------------------------------------------
+*service-account*.json
+*firebase-adminsdk*.json
+sa.json
+tb-sa.json
+
+# Variabel lingkungan: berisi kata sandi & konfigurasi asli.
+# Yang dibagikan hanya contohnya (.env.example) yang tanpa nilai rahasia.
+.env
+.env.*
+!.env.example
+
+# js/firebase-config.js DIHASILKAN dari .env lewat `npm run config`.
+# Tidak di-commit supaya repo tidak menunjuk ke project Firebase yang hidup.
+# Setiap orang membuatnya sendiri dari .env miliknya.
+js/firebase-config.js

@@ -2,12 +2,11 @@
    TemuBalik — Storage Layer
    Semua akses data lewat modul ini.
 
-   Sumber data:
-   1. data/data.json          → data awal (seed), read-only
-   2. localStorage            → laporan baru, perubahan status, penghapusan
+   Sumber data (dipilih otomatis):
+   1. Firebase Firestore      → kalau js/firebase-adapter.js berhasil aktif
+   2. data/data.json + localStorage → cadangan kalau Firebase gagal/offline
 
-   Kalau nanti mau disambung ke backend asli, cukup ganti isi fungsi-fungsi
-   di bawah dengan pemanggilan fetch() ke API.
+   Halaman TIDAK perlu tahu sedang memakai yang mana: nama fungsinya sama.
    ========================================================================== */
 
 const KEYS = {
@@ -78,8 +77,8 @@ async function getSeed() {
   return seedCache;
 }
 
-/* ---------- Public API ---------- */
-const Store = {
+/* ---------- Public API (implementasi lokal) ---------- */
+const LocalStore = {
   /** Semua laporan (seed + lokal), sudah difilter yang dihapus. */
   async getAll() {
     const seed = await getSeed();
@@ -243,7 +242,7 @@ const Store = {
     return all.filter((r) => ids.includes(r.id));
   },
 
-  /* ---------- Admin session (demo saja) ---------- */
+  /* ---------- Admin session (fallback lokal, bukan keamanan sungguhan) ---------- */
   setAdminSession(on) {
     if (on) localStorage.setItem(KEYS.ADMIN, "1");
     else localStorage.removeItem(KEYS.ADMIN);
@@ -251,6 +250,348 @@ const Store = {
 
   isAdmin() {
     return localStorage.getItem(KEYS.ADMIN) === "1";
+  },
+};
+
+/* ==========================================================================
+   Pemilih sumber data
+
+   Kalau Firebase siap → semua operasi data diteruskan ke FirebaseStore.
+   Kalau tidak (offline, Firestore belum diaktifkan, rules menolak) →
+   otomatis memakai LocalStore. Halaman tidak perlu diubah sama sekali.
+   ========================================================================== */
+
+const FIREBASE_TIMEOUT_MS = 6000;
+
+/* Untuk operasi BACA, jangan tunggu lama: halaman harus langsung terisi.
+   Kalau Firebase belum siap dalam jendela ini, pakai data lokal dulu. */
+const FIREBASE_FAST_MS = 900;
+
+/** Tunggu Firebase siap, tapi jangan sampai halaman menggantung selamanya. */
+function firebaseReady(timeoutMs = FIREBASE_TIMEOUT_MS) {
+  const fb = typeof window !== "undefined" ? window.FirebaseStore : null;
+  if (!fb || typeof fb.ready !== "function") return Promise.resolve(false);
+
+  return Promise.race([
+    fb.ready().catch(() => false),
+    new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+}
+
+/** Ambil FirebaseStore hanya kalau benar-benar siap dipakai. */
+function fb() {
+  const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+  if (!store || !store.isReady || !store.isReady()) return null;
+  // Sudah pernah gagal → jangan coba lagi di halaman ini.
+  if (typeof store.isDegraded === "function" && store.isDegraded()) return null;
+  return store;
+}
+
+/**
+ * Kata sandi demo untuk mode lokal.
+ * Nilainya TIDAK ditulis di kode: berasal dari js/firebase-config.js yang
+ * dihasilkan dari .env (FIREBASE_DEMO_PASSWORD). Kosong = login demo mati.
+ */
+function demoPassword() {
+  const cfg = (typeof window !== "undefined" && window.TEMUBALIK_FIREBASE) || {};
+  return String(cfg.demoPassword || "");
+}
+
+/**
+ * Apakah situs sedang dibuka dari komputer sendiri?
+ * Dipakai untuk membatasi fitur demo (mis. kata sandi demo)
+ * supaya tidak ikut terbuka saat situs sudah online.
+ */
+function isLocalHost() {
+  try {
+    const host = String(location.hostname || "");
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host === "" || // file://
+      host.endsWith(".localhost")
+    );
+  } catch {
+    return false;
+  }
+}
+
+const Store = {
+  /** "firebase" atau "local" — dipakai untuk menampilkan info di UI. */
+  async mode() {
+    await firebaseReady();
+    return fb() ? "firebase" : "local";
+  },
+
+  /**
+   * Panggil Firebase dulu; kalau gagal, pakai lokal.
+   * Halaman jadi tidak pernah kosong gara-gara jaringan.
+   *
+   * @param {Function} remoteCall
+   * @param {Function} localCall
+   * @param {"fast"|"wait"} speed  "fast" untuk baca, "wait" untuk tulis.
+   */
+  async _run(remoteCall, localCall, speed = "wait") {
+    await firebaseReady(speed === "fast" ? FIREBASE_FAST_MS : FIREBASE_TIMEOUT_MS);
+    const remote = fb();
+
+    if (remote) {
+      try {
+        return await remoteCall(remote);
+      } catch (err) {
+        console.warn("[store] Firebase gagal, memakai data lokal:", err && err.message);
+      }
+    }
+    return localCall();
+  },
+
+  async getAll() {
+    return this._run(
+      (remote) => remote.getAll(),
+      () => LocalStore.getAll(),
+      "fast"
+    );
+  },
+
+  async getById(id) {
+    return this._run(
+      (remote) => remote.getById(id),
+      () => LocalStore.getById(id),
+      "fast"
+    );
+  },
+
+  async nextId() {
+    // Firestore memakai counter transaksi sendiri di dalam create().
+    await firebaseReady();
+    return fb() ? null : LocalStore.nextId();
+  },
+
+  async create(payload) {
+    return this._run(
+      (remote) => remote.create(payload),
+      () => LocalStore.create(payload)
+    );
+  },
+
+  async updateStatus(id, status) {
+    return this._run(
+      (remote) => remote.updateStatus(id, status),
+      () => LocalStore.updateStatus(id, status)
+    );
+  },
+
+  async remove(id) {
+    return this._run(
+      (remote) => remote.remove(id),
+      () => LocalStore.remove(id)
+    );
+  },
+
+  async stats() {
+    return this._run(
+      (remote) => remote.stats(),
+      () => LocalStore.stats(),
+      "fast"
+    );
+  },
+
+  async getMine() {
+    return this._run(
+      (remote) => remote.getMine(),
+      () => LocalStore.getMine(),
+      "fast"
+    );
+  },
+
+  /* ---------- Draft selalu lokal (tidak perlu ke server) ---------- */
+  saveDraft: (data) => LocalStore.saveDraft(data),
+  loadDraft: () => LocalStore.loadDraft(),
+  clearDraft: () => LocalStore.clearDraft(),
+
+  /* ---------- Admin ---------- */
+
+  /** Login admin: Firebase Auth kalau aktif, kalau tidak mode demo lokal. */
+  async signInAdmin(email, password) {
+    await firebaseReady();
+    const remote = fb();
+    if (remote) return remote.signIn(email, password);
+
+    // --- Mode demo (hanya saat Firebase tidak aktif) ---
+    // PENTING: kata sandi demo ini HANYA boleh berlaku di komputer sendiri.
+    // Kalau situs sudah online lalu Firebase gagal (jaringan buruk, kuota
+    // habis, salah konfigurasi), tanpa batas ini siapa pun bisa masuk admin
+    // dengan kata sandi demo. Jadi di domain publik login demo ditolak.
+    if (!isLocalHost()) {
+      throw new Error(
+        "Firebase tidak dapat dihubungi, jadi login admin dinonaktifkan. " +
+          "Periksa koneksi internet lalu muat ulang halaman."
+      );
+    }
+
+    // Kata sandi demo TIDAK ditulis di kode — dibaca dari js/firebase-config.js
+    // yang dihasilkan dari .env. Kalau tidak diisi, login demo mati.
+    const demo = demoPassword();
+    if (!demo) {
+      throw new Error(
+        "Login demo belum diatur. Isi FIREBASE_DEMO_PASSWORD di .env lalu jalankan npm run config."
+      );
+    }
+
+    if (String(password) !== demo) {
+      throw new Error("Kata sandi salah. Coba lagi.");
+    }
+    LocalStore.setAdminSession(true);
+    return { email: "demo@local" };
+  },
+
+  async signOutAdmin() {
+    const remote = fb();
+    if (remote) await remote.signOut();
+    LocalStore.setAdminSession(false);
+  },
+
+  /** Login admin dengan Google (hanya kalau Firebase aktif). */
+  async signInAdminWithGoogle() {
+    await firebaseReady();
+    const remote = fb();
+    if (!remote || typeof remote.signInWithGoogle !== "function") {
+      throw new Error("Login Google hanya tersedia saat Firebase aktif.");
+    }
+    return remote.signInWithGoogle();
+  },
+
+  /** Apakah login Google bisa ditawarkan di halaman ini. */
+  canUseGoogle() {
+    return Boolean(fb());
+  },
+
+  /** Apakah ada admin yang sedang login. */
+  isAdmin() {
+    const remote = fb();
+    if (remote) return Boolean(remote.currentUser());
+    return LocalStore.isAdmin();
+  },
+
+  /** Tunggu sampai status login diketahui (penting saat Firebase memulihkan sesi). */
+  async waitAdmin() {
+    await firebaseReady();
+    const remote = fb();
+    if (remote && typeof remote.waitAdmin === "function") {
+      await remote.waitAdmin();
+    }
+    return this.isAdmin();
+  },
+
+  /** Email admin yang login, atau null. */
+  adminEmail() {
+    const remote = fb();
+    if (remote) {
+      const user = remote.currentUser();
+      return user ? user.email || "admin" : null;
+    }
+    return LocalStore.isAdmin() ? "demo@local" : null;
+  },
+
+  /**
+   * Pantau perubahan status login.
+   * Langsung memanggil callback dengan keadaan sekarang, lalu setiap berubah.
+   */
+  onAdminChange(callback) {
+    let unsubscribe = () => {};
+    let stopped = false;
+
+    firebaseReady().then(() => {
+      if (stopped) return;
+      const remote = fb();
+
+      if (remote && typeof remote.onAuth === "function") {
+        callback(Boolean(remote.currentUser()), remote.currentUser()?.email || null);
+        unsubscribe = remote.onAuth(() => {
+          const user = remote.currentUser();
+          callback(Boolean(user), user ? user.email || "admin" : null);
+        });
+      } else {
+        callback(LocalStore.isAdmin(), LocalStore.isAdmin() ? "demo@local" : null);
+      }
+    });
+
+    return () => {
+      stopped = true;
+      unsubscribe();
+    };
+  },
+
+  /**
+   * Versi progresif untuk halaman detail.
+   *
+   * 1. Tampilkan dari data lokal secepatnya (kalau ada).
+   * 2. Tunggu Firebase; kalau datanya ada di sana, tampilkan versi terbaru.
+   *
+   * @param {string} id
+   * @param {(report: any, source: "local"|"firebase") => void} onData
+   * @returns {Promise<any|null>} hasil akhir
+   */
+  async getByIdProgressive(id, onData) {
+    let local = null;
+    try {
+      local = await LocalStore.getById(id);
+    } catch {
+      /* abaikan */
+    }
+    if (local) onData(local, "local");
+
+    const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+    if (!store || typeof store.ready !== "function") return local;
+
+    const ok = await firebaseReady(FIREBASE_TIMEOUT_MS);
+    const remote = fb();
+    if (!ok || !remote) return local;
+
+    try {
+      const fresh = await remote.getById(id);
+      if (fresh) onData(fresh, "firebase");
+      return fresh || local;
+    } catch (err) {
+      console.warn("[store] gagal ambil detail dari Firebase:", err && err.message);
+      return local;
+    }
+  },
+
+  /** true kalau Firebase yang dipakai (bukan localStorage). */
+  usingFirebase() {
+    return Boolean(fb());
+  },
+
+  /**
+   * Tampilkan data lokal dulu supaya halaman langsung terisi, lalu panggil
+   * `onData` lagi dengan data Firebase begitu siap.
+   *
+   * Dipakai halaman daftar/beranda agar tidak menunggu jaringan.
+   * @param {(rows: any[], source: "local"|"firebase") => void} onData
+   */
+  async getAllProgressive(onData) {
+    // 1) Tampilkan cepat dari cache/seed lokal.
+    try {
+      onData(await LocalStore.getAll(), "local");
+    } catch {
+      /* kalau seed pun gagal, biarkan lanjut */
+    }
+
+    // 2) Coba Firebase; kalau berhasil, ganti tampilan.
+    const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+    if (!store || typeof store.ready !== "function") return;
+
+    const ok = await firebaseReady();
+    const remote = fb();
+    if (!ok || !remote) return;
+
+    try {
+      onData(await remote.getAll(), "firebase");
+    } catch (err) {
+      console.warn("[store] sinkronisasi Firebase gagal:", err && err.message);
+    }
   },
 };
 

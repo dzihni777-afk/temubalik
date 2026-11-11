@@ -3,7 +3,7 @@ const { JSDOM, VirtualConsole } = require("jsdom");
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = "C:/Users/ian/Documents/temubalik";
+const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
 const BASE = "http://localhost:8899/";
 
 let pass = 0, fail = 0;
@@ -23,6 +23,11 @@ async function loadPage(page, { seedLocal = null, url = "" } = {}) {
     resources: "usable",
     pretendToBeVisual: true,
     virtualConsole: vc,
+    beforeParse(window) {
+      // Uji ini menguji implementasi localStorage, jadi paksa mode lokal
+      // supaya tidak bergantung pada jaringan/Firebase.
+      window.localStorage.setItem("temubalik.storage", "local");
+    },
   });
 
   if (seedLocal) {

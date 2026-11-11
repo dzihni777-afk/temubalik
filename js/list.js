@@ -224,14 +224,23 @@
     if (params.get("q")) qInput.value = params.get("q");
 
     try {
-      allReports = await Store.getAll();
-      populateFilters();
+      // Tampil cepat dari data lokal, lalu diperbarui dari Firebase bila siap.
+      let populated = false;
 
-      if (params.get("kategori")) fKategori.value = params.get("kategori");
-      if (params.get("status")) fStatus.value = params.get("status");
-      if (params.get("lokasi")) fLokasi.value = params.get("lokasi");
+      await Store.getAllProgressive((rows) => {
+        allReports = rows;
 
-      applyFilters();
+        if (!populated) {
+          populateFilters();
+          populated = true;
+
+          if (params.get("kategori")) fKategori.value = params.get("kategori");
+          if (params.get("status")) fStatus.value = params.get("status");
+          if (params.get("lokasi")) fLokasi.value = params.get("lokasi");
+        }
+
+        applyFilters();
+      });
     } catch (err) {
       grid.innerHTML = `
         <div class="empty-state" style="grid-column:1/-1">

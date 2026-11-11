@@ -174,12 +174,12 @@
             </div>
           </div>
 
-          <div class="card mt-16">
+          <div class="card mt-16" id="statusCard">
             <div class="card-head">
               <h3>Perbarui Status</h3>
             </div>
             <div class="card-body">
-              <p class="muted small mb-16">
+              <p class="muted small mb-16" id="statusHint">
                 Sudah menemukan barang Anda? Tandai laporan sebagai selesai agar tidak dicari lagi.
               </p>
               <div class="row" style="gap:10px;">
@@ -237,8 +237,23 @@
       toast(ok ? "Tautan disalin ke clipboard." : "Gagal menyalin tautan.", ok ? "success" : "error");
     });
 
-    // Toggle status
-    document.getElementById("toggleStatusBtn").addEventListener("click", async () => {
+    // Toggle status — di Firebase hanya admin yang boleh (sesuai Security Rules)
+    const toggleBtn = document.getElementById("toggleStatusBtn");
+    const statusHint = document.getElementById("statusHint");
+
+    const isAdmin = Store.isAdmin();
+    const needsAdmin = Store.usingFirebase() && !isAdmin;
+
+    if (needsAdmin) {
+      // Sembunyikan tombol, ganti dengan petunjuk. Jangan biarkan pengguna
+      // menekan tombol yang pasti ditolak server.
+      toggleBtn.classList.add("hidden");
+      if (statusHint) {
+        statusHint.innerHTML = `Hanya admin yang dapat mengubah status. <a href="admin.html">Masuk sebagai admin</a> bila Anda pengelola.`;
+      }
+    }
+
+    toggleBtn.addEventListener("click", async () => {
       const next = r.status === "Selesai" ? "Aktif" : "Selesai";
       const ok = await confirmDialog({
         title: next === "Selesai" ? "Tandai barang ditemukan?" : "Batalkan status selesai?",
@@ -250,12 +265,20 @@
 
       if (!ok) return;
 
+      toggleBtn.disabled = true;
+
       try {
         const updated = await Store.updateStatus(r.id, next);
         toast(`Status diubah menjadi ${next}.`, "success");
         render(updated);
       } catch (err) {
-        toast(err.message || "Gagal mengubah status.", "error");
+        const message = String((err && err.message) || "");
+        if (/permission|insufficient/i.test(message)) {
+          toast("Anda tidak punya izin mengubah status. Masuk sebagai admin dulu.", "error");
+        } else {
+          toast(message || "Gagal mengubah status.", "error");
+        }
+        toggleBtn.disabled = false;
       }
     });
   }
@@ -270,12 +293,27 @@
     }
 
     try {
-      const report = await Store.getById(id);
+      // Ambil laporan lebih dulu: ini yang menentukan halaman tampil.
+      // Data lokal tampil cepat, lalu diperbarui dari Firebase bila ada.
+      const report = await Store.getByIdProgressive(id, (data) => render(data));
+
       if (!report) {
         renderNotFound(`Laporan dengan kode "${id}" tidak ditemukan.`);
         return;
       }
-      render(report);
+
+      // Setelah tampil, cek apakah pengguna admin. Kalau ternyata admin,
+      // tombol ubah status dimunculkan kembali.
+      const isAdmin = await Store.waitAdmin();
+      if (isAdmin) {
+        const btn = document.getElementById("toggleStatusBtn");
+        const hint = document.getElementById("statusHint");
+        if (btn) btn.classList.remove("hidden");
+        if (hint) {
+          hint.textContent =
+            "Sudah menemukan barang Anda? Tandai laporan sebagai selesai agar tidak dicari lagi.";
+        }
+      }
     } catch (err) {
       renderNotFound(err.message);
     }

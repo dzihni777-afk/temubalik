@@ -6,7 +6,7 @@ const http = require("http");
 const fs = require("fs");
 
 const CHROME = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe";
-const ROOT = "C:/Users/ian/Documents/temubalik";
+const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
 const profile = path.join(os.tmpdir(), "tb-int-" + Date.now());
 const port = 9337;
 
