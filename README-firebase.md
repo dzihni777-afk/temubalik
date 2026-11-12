@@ -135,7 +135,7 @@ Nama pastinya bisa dilihat di
 4. Aktifkan **Enable**, lalu **Save**
 5. Pindah ke tab **Users** → **Add user**
 6. Isi email & kata sandi admin:
-   - Email: `dzihni777@gmail.com`
+   - Email: `r9723419@gmail.com`
    - Password: (pilih sandi kuat, minimal 6 karakter)
 
 Akun inilah yang dipakai untuk masuk ke `admin.html`. Kalau lebih suka tanpa
@@ -153,7 +153,7 @@ Tanpa langkah ini, Firestore menolak semua akses (default production mode).
 3. Pastikan daftar admin berisi email Anda:
 
 ```
-"dzihni777@gmail.com"
+"r9723419@gmail.com"
 ```
 
 4. Salin **seluruh** isi `firestore.rules` ke editor di Console

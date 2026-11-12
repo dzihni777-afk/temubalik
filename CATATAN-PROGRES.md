@@ -139,7 +139,7 @@ Diurutkan dari yang paling penting. Tanda: 🔴 wajib · ⚠️ sebaiknya · ℹ
 ### 3.1 ✅ Email admin di rules sudah diisi — tinggal publish
 
 ```rules
-"dzihni777@gmail.com"
+"r9723419@gmail.com"
 ```
 
 **Sudah diperbaiki 12 Nov 2026.** Yang masih perlu: **publish rules** supaya

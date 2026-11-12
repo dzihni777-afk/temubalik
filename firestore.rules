@@ -40,7 +40,7 @@ service cloud.firestore {
           "VHG3YKblzHQzqK0LCVpaKpAbquL2"
         ] ||
         request.auth.token.email in [
-          "dzihni777@gmail.com"
+          "r9723419@gmail.com"
         ]
       );
     }

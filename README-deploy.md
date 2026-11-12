@@ -56,7 +56,7 @@ menulis dan membaca dari Firestore.
 Daftar admin di `firestore.rules` sekarang berisi email asli:
 
 ```
-"dzihni777@gmail.com"
+"r9723419@gmail.com"
 ```
 
 Yang masih perlu: **publish rules** supaya berlaku di server.
@@ -71,7 +71,7 @@ Atau lewat CLI:
 firebase deploy --only firestore:rules
 ```
 
-Setelah itu, pastikan akun `dzihni777@gmail.com` sudah dibuat di Firebase
+Setelah itu, pastikan akun `r9723419@gmail.com` sudah dibuat di Firebase
 Authentication (lihat `README-firebase.md` langkah 3).
 
 ### 2. Buat akun admin
@@ -79,13 +79,13 @@ Authentication (lihat `README-firebase.md` langkah 3).
 **Opsi A — Email & kata sandi**
 
 1. <https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
-2. **Add user** → email `dzihni777@gmail.com`, isi kata sandi (min. 6 karakter)
+2. **Add user** → email `r9723419@gmail.com`, isi kata sandi (min. 6 karakter)
 3. Email harus sama dengan yang ada di `firestore.rules`
 
 **Opsi B — Google**
 
 Tidak perlu membuat akun. Cukup login dengan Google memakai
-`dzihni777@gmail.com` di `/admin.html`. Email itu sudah terdaftar di
+`r9723419@gmail.com` di `/admin.html`. Email itu sudah terdaftar di
 `firestore.rules`, jadi langsung dikenali sebagai admin.
 
 ### 3. Daftarkan domain untuk login Google
