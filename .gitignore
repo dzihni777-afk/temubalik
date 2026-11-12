@@ -28,3 +28,7 @@ js/firebase-config.js
 
 # Cache deploy Firebase Hosting (dibuat otomatis oleh `firebase deploy`).
 .firebase/
+
+# log debug Firebase CLI
+firebase-debug.log
+firebase-debug.*.log
