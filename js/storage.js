@@ -79,16 +79,28 @@ async function getSeed() {
 
 /* ---------- Public API (implementasi lokal) ---------- */
 const LocalStore = {
-  /** Semua laporan (seed + lokal), sudah difilter yang dihapus. */
+  /**
+   * Semua laporan (seed + lokal), sudah difilter yang dihapus.
+   *
+   * Tiap laporan diberi penanda `_contoh: true` kalau berasal dari data
+   * contoh (data/data.json), supaya tampilan bisa memberi label "Contoh".
+   * Laporan yang dibuat pengguna sendiri TIDAK diberi penanda ini.
+   */
   async getAll() {
     const seed = await getSeed();
     const local = readJSON(KEYS.LOCAL, []);
     const overrides = readJSON(KEYS.OVERRIDES, {});
     const deleted = new Set(readJSON(KEYS.DELETED, []));
 
+    // Id data contoh, dipakai untuk menandai hasil gabungan.
+    const seedIds = new Set(seed.map((r) => r && r.id).filter(Boolean));
+
     const merged = [...seed, ...local]
       .filter((r) => r && r.id && !deleted.has(r.id))
-      .map((r) => (overrides[r.id] ? { ...r, ...overrides[r.id] } : r));
+      .map((r) => {
+        const row = overrides[r.id] ? { ...r, ...overrides[r.id] } : r;
+        return seedIds.has(r.id) ? { ...row, _contoh: true } : row;
+      });
 
     return merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   },
@@ -571,15 +583,28 @@ const Store = {
    * Dipakai halaman daftar/beranda agar tidak menunggu jaringan.
    * @param {(rows: any[], source: "local"|"firebase") => void} onData
    */
+  /**
+   * Tampilkan data cepat, lalu lengkapi dari Firebase.
+   *
+   * PENTING: hasil Firebase DIGABUNG dengan data lokal, bukan menggantinya.
+   * Versi lama memanggil onData(local) lalu onData(remote) — karena remote
+   * menggantikan seluruh daftar, 10 laporan contoh langsung hilang begitu
+   * Firestore (yang mungkin masih kosong) menjawab.
+   *
+   * Urutan hasil: laporan Firebase lebih dulu (paling baru), lalu sisanya.
+   * Laporan contoh tetap diberi penanda `_contoh` agar bisa dilabeli.
+   */
   async getAllProgressive(onData) {
     // 1) Tampilkan cepat dari cache/seed lokal.
+    let localRows = [];
     try {
-      onData(await LocalStore.getAll(), "local");
+      localRows = await LocalStore.getAll();
+      onData(localRows, "local");
     } catch {
       /* kalau seed pun gagal, biarkan lanjut */
     }
 
-    // 2) Coba Firebase; kalau berhasil, ganti tampilan.
+    // 2) Coba Firebase; kalau berhasil, GABUNG dengan data lokal.
     const store = typeof window !== "undefined" ? window.FirebaseStore : null;
     if (!store || typeof store.ready !== "function") return;
 
@@ -588,7 +613,18 @@ const Store = {
     if (!ok || !remote) return;
 
     try {
-      onData(await remote.getAll(), "firebase");
+      const remoteRows = await remote.getAll();
+      if (!Array.isArray(remoteRows) || !remoteRows.length) return;
+
+      // Laporan yang sudah ada di Firebase menang atas versi lokalnya.
+      const remoteIds = new Set(remoteRows.map((r) => r && r.id).filter(Boolean));
+      const onlyLocal = localRows.filter((r) => r && r.id && !remoteIds.has(r.id));
+
+      const merged = [...remoteRows, ...onlyLocal].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      onData(merged, "firebase");
     } catch (err) {
       console.warn("[store] sinkronisasi Firebase gagal:", err && err.message);
     }

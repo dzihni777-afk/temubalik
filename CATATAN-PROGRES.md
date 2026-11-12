@@ -13,32 +13,39 @@
 | Bagian | Status |
 | --- | --- |
 | Integrasi Firebase (Firestore + Auth) | ✅ selesai |
-| Security Rules | ✅ terpublish & aktif, ⚠️ email admin masih placeholder |
-| Hosting online | ✅ live, ⚠️ **kode live masih versi lama** (§3.2) |
-| Data sensitif ke `.env` | ✅ selesai di kode, ⚠️ belum live |
+| Security Rules | ✅ terpublish & aktif (UID + email admin terdaftar) |
+| Hosting online | ✅ live, kode lokal = live (hash identik) |
+| Data sensitif ke `.env` | ✅ selesai & live |
 | Uji otomatis | ✅ 296 pemeriksaan lulus |
-| Commit | ⚠️ ada perubahan belum di-commit (§8) |
+| Commit | ✅ semua ter-commit & ter-push |
 
 **Alamat situs:** <https://temubalik-26f80.web.app>
 
-**Status fungsi per 12 Nov 2026 (hasil uji langsung ke situs live):**
+**Status fungsi per 12 Nov 2026 (hasil uji langsung ke produksi):**
 
 | Fungsi | Status | Bukti |
 | --- | --- | --- |
 | Halaman tampil | ✅ 7/7 halaman | semua HTTP 200 |
 | Firebase tersambung | ✅ | `Store.mode()` → `"firebase"` |
-| Baca daftar laporan | ✅ | 10 laporan contoh tampil |
+| Baca daftar laporan | ✅ | 10 laporan contoh tampil + label CONTOH |
 | Kirim laporan | ✅ masuk Firestore | uji POST → 200 |
 | Ubah status tanpa login | ✅ ditolak | 403 |
+| Ubah status sebagai admin | ✅ diterima | 200 (token UID admin) |
 | Hapus tanpa login | ✅ ditolak | 403 |
-| Baca koleksi lain | ✅ ditolak | 403 |
-| Login Google (tombol) | ✅ muncul | `canUseGoogle()` → `true` |
-| Login admin (email) | ❌ belum bisa | belum ada akun + email rules placeholder |
+| Hapus sebagai admin | ✅ diterima | 200 (token UID admin) |
+| Foto > 700 KB | ✅ ditolak rules | 403 |
+| Foto normal | ✅ diterima | 200 |
+| Login Google (tombol) | ✅ tampil & provider aktif | screenshot + `createAuthUri` |
+| Login admin (email) | ⚠️ akun ada, sandi belum diatur | §3.4 |
 
-**Catatan penting soal "laporan contoh":** daftar laporan di situs live
-menampilkan **10 laporan dari `data/data.json`** (data contoh bawaan repo),
-bukan data pengguna. Firestore saat ini hanya berisi **1 dokumen**, yaitu
-laporan uji saya `LPR-CEK-171929` (§3.9).
+**Akun admin:** UID `VHG3YKblzHQzqK0LCVpaKpAbquL2`, email
+`r9723419@gmail.com`.
+
+**Catatan soal "laporan contoh":** daftar laporan menampilkan **10 laporan
+dari `data/data.json`** yang **digabung** dengan isi Firestore. Firestore
+sendiri saat ini **0 dokumen**. Setiap kartu contoh diberi label **CONTOH**
+supaya tidak dikira laporan nyata.
+
 
 ---
 
@@ -81,6 +88,14 @@ Diperbaiki lewat `databaseId` di config + `applyDatabaseId()` di adapter.
 
 Dulu, kalau Firebase gagal di situs online, siapa pun bisa login admin dengan
 `admin123`. Sekarang dibatasi hanya untuk `localhost` / `127.0.0.1` / `file://`.
+
+**Bug 4 — Data contoh hilang setelah sync** ✅ diperbaiki 12 Nov 2026
+
+`getAllProgressive()` memanggil `onData(local)` lalu `onData(remote)`.
+Panggilan kedua **mengganti** seluruh daftar, jadi begitu Firestore (yang
+masih kosong) menjawab, 10 laporan contoh lenyap dan halaman menampilkan
+"0 laporan". Sekarang hasilnya **digabung**, dan kartu contoh diberi label
+CONTOH. Detail di §3.8.
 
 ### 2.3 Data sensitif dipindahkan ke `.env`
 
@@ -131,86 +146,39 @@ Diurutkan dari yang paling penting. Tanda: 🔴 wajib · ⚠️ sebaiknya · ℹ
 
 | # | Hal | Kenapa penting |
 | --- | --- | --- |
-| §3.2 | Rules belum dipublish | Email admin & batas foto baru belum aktif |
 | §3.3 | Service account bocor | Kunci akses penuh belum dicabut |
-| §3.4 | Akun admin belum dibuat | Panel admin belum bisa dipakai |
-| §3.8 | Data contoh hilang setelah sync | Halaman berubah 10 laporan → 1 |
+| §3.4 | Kata sandi akun admin | Akun ada, tapi sandinya belum diatur |
 
-### 3.1 ✅ Email admin di rules sudah diisi — tinggal publish
+Sudah beres: §3.1 (email admin di rules), §3.2 (rules dipublish),
+§3.8 (data contoh hilang setelah sync).
+
+### 3.1 ✅ Email admin di rules sudah diisi & dipublish
 
 ```rules
 "r9723419@gmail.com"
 ```
 
-**Sudah diperbaiki 12 Nov 2026.** Yang masih perlu: **publish rules** supaya
-berlaku di server, dan **buat akunnya** di Firebase Authentication.
+**Sudah diperbaiki & dipublish 12 Nov 2026.** Ruleset aktif sudah memuat
+UID admin `VHG3YKblzHQzqK0LCVpaKpAbquL2` dan email di atas.
 
-Tanpa publish, rules lama (berisi `admin@temubalik.com`) masih aktif di
-server, sehingga panel admin belum bisa dipakai.
+Diverifikasi langsung ke Firestore produksi:
 
-```bash
-firebase deploy --only firestore:rules
-```
+| Uji | Hasil |
+| --- | --- |
+| Ubah status tanpa login | 403 |
+| Ubah status sebagai admin (UID) | 200 |
+| Hapus tanpa login | 403 |
+| Hapus sebagai admin (UID) | 200 |
 
-### 3.2 🔴 Deploy terakhir belum membawa kode terbaru
+### 3.2 ✅ Deploy terakhir sudah membawa kode terbaru
 
-Per 12 November 2026 pukul 17:20, saya verifikasi ulang ke situs live.
-Hasilnya **kode live masih versi LAMA**:
+Catatan lama menyebut kode live masih versi lama (semua `last-modified`
+identik `Wed, 11 Nov 2026 11:13:02 GMT`). **Itu sudah tidak berlaku.**
 
-| File | Live | Lokal |
-| --- | --- | --- |
-| `js/storage.js` | masih `if (String(password) !== "admin123")` | pakai `demoPassword()` |
-| `js/admin.js` | masih hardcode `admin123` | baca dari config |
-| `js/firebase-config.js` | versi lama (bukan hasil generate) | hasil generate `.env` |
-
-**Bukti paling kuat:** header `last-modified` **SEMUA** file live (index.html,
-admin.html, daftar.html, storage.js, admin.js, firebase-config.js,
-firebase-adapter.js, utils.js, style.css) bernilai **identik**:
-`Wed, 11 Nov 2026 11:13:02 GMT`.
-
-Timestamp yang sama untuk semua file hanya mungkin kalau seluruh situs
-diunggah dalam satu operasi — yaitu deploy pertama. Deploy baru akan memberi
-timestamp baru, minimal pada file yang berubah.
-
-**Artinya:** perubahan `.env`, `predeploy`, dan perbaikan tes **belum aktif
-di situs online**. Situs lama tetap jalan normal (tidak rusak), tapi masih
-memakai kode sebelum `.env`.
-
-**Kemungkinan penyebab:**
-
-1. `firebase deploy` dijalankan dari folder lain (bukan root proyek)
-2. Deploy berhenti sebelum tahap hosting (mis. hanya `--only firestore:rules`)
-3. `firebase deploy` gagal di `predeploy` karena `.env` tidak ada di mesin itu
-4. Yang ter-deploy adalah salinan lama (mis. hasil clone sebelumnya)
-5. Deploy dijalankan di mesin/perangkat lain yang isi foldernya belum
-   diperbarui (mis. hasil `git pull` sebelum commit terakhir)
-
-**Cara memastikan sudah benar:**
-
-```bash
-cd temubalik
-npm run config                      # harus sukses dulu
-firebase deploy --only hosting      # perhatikan "Deploy complete!"
-```
-
-Setelah itu verifikasi — harus muncul **1 baris per file**, bukan "BEDA":
-
-```bash
-for f in js/storage.js js/admin.js js/firebase-config.js; do
-  r=$(curl -s "https://temubalik-26f80.web.app/$f" | sha256sum | cut -d' ' -f1)
-  l=$(sha256sum "$f" | cut -d' ' -f1)
-  [ "$r" = "$l" ] && echo "SAMA  $f" || echo "BEDA  $f"
-done
-```
-
-Cek juga timestamp-nya sudah berubah:
-
-```bash
-curl -sI https://temubalik-26f80.web.app/js/storage.js | grep -i last-modified
-```
-
-Kalau masih BEDA, cek `firebase.json` punya `predeploy` dan pastikan `.env`
-ada di folder yang sama saat deploy.
+Per 12 November 2026, deploy hosting sudah dijalankan ulang dan diverifikasi
+byte-per-byte: hash `index.html`, `tentang.html`, `admin.html`, `lapor.html`
+di situs live **sama** dengan file lokal. `js/firebase-config.js` live juga
+identik dengan hasil `npm run config`.
 
 ### 3.3 🔴 Service account bocor, belum di-rotate
 
@@ -221,10 +189,43 @@ Kunci `firebase-adminsdk-fbsvc@temubalik-26f80.iam.gserviceaccount.com`
 <https://console.firebase.google.com/project/temubalik-26f80/settings/serviceaccounts/adminsdk>
 lalu buat baru bila perlu.
 
-### 3.4 ⚠️ Akun admin belum dibuat
+### 3.4 ⚠️ Akun admin sudah ada, kata sandinya belum diatur
 
-Belum ada user di Firebase Authentication. Panel admin tidak bisa dipakai
-sampai akun dibuat dan emailnya terdaftar di rules.
+**Koreksi catatan lama:** akun admin **sudah ada**. Isinya:
+
+| Field | Nilai |
+| --- | --- |
+| UID | `VHG3YKblzHQzqK0LCVpaKpAbquL2` |
+| Email | `r9723419@gmail.com` |
+| Provider | email/password |
+| Status | aktif (tidak disabled) |
+
+Jadi **bukan** `dzihni777@gmail.com` seperti yang sempat ditulis di
+dokumentasi. Semua dokumen sudah dikoreksi.
+
+**Yang masih kurang:** kata sandi akun ini belum diketahui/diatur. Login
+Google sudah aktif, jadi opsi termudah adalah menekan **Masuk dengan Google**
+di `/admin` memakai akun Google `r9723419@gmail.com`.
+
+Kalau ingin memakai kata sandi, buka link atur-ulang yang sudah dibuat:
+
+<https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
+→ pilih user → **Reset password**, atau pakai link yang saya berikan di chat.
+
+### 3.4b ✅ Login Google sudah aktif
+
+Sempat saya duga provider Google belum aktif karena `/config` hanya
+menampilkan `email`. Ternyata provider Google dikelola di endpoint terpisah
+(`defaultSupportedIdpConfigs/google.com`), dan statusnya **enabled: true**
+dengan `clientId` + `clientSecret` terisi.
+
+Diverifikasi dua cara:
+
+1. `accounts:createAuthUri` dengan `providerId: "google.com"` mengembalikan
+   `authUri` — artinya Google siap dipakai.
+2. Screenshot halaman `/admin` di browser sungguhan menampilkan tombol
+   **Masuk dengan Google** beserta logo Google.
+
 
 ### 3.5 ✅ Batas ukuran foto tidak konsisten — SUDAH DIPERBAIKI
 
@@ -278,47 +279,48 @@ online (halaman memakai Firebase langsung). Tidak ikut ter-deploy.
 
 **Keputusan yang perlu diambil:** hapus, atau pertahankan sebagai alternatif.
 
-### 3.8 ℹ️ Data contoh masih tampil — dan saat ini itu SELURUH isi daftar
+### 3.8 ✅ Data contoh hilang setelah sync — SUDAH DIPERBAIKI
 
-**Fakta per 12 Nov 2026:**
+**Gejala:** beranda menampilkan "0 total laporan" dan halaman Daftar kosong,
+padahal `data/data.json` berisi 10 laporan contoh. Begitu Firestore (yang
+masih kosong) menjawab, seluruh daftar berubah jadi kosong.
 
-| Sumber | Jumlah |
-| --- | --- |
-| `data/data.json` (data contoh repo) | **10 laporan** |
-| Firestore `reports` | **1 dokumen** (`LPR-CEK-171929`, laporan uji saya) |
+**Penyebab:** `getAllProgressive()` di `js/storage.js` memanggil
+`onData(LocalStore.getAll())` lalu `onData(remote.getAll())`. Panggilan kedua
+**mengganti** seluruh daftar, bukan menggabung. Karena Firestore kosong,
+hasil akhirnya 0 baris.
 
-Jadi daftar laporan di situs live saat ini **hanya menampilkan data contoh**,
-bukan data pengguna nyata. Ini bukan bug — memang begitu desainnya — tapi
-penting diketahui supaya tidak salah kira situs sudah "berisi".
+**Perbaikan (12 Nov 2026):**
 
-**Risiko kalau dibiarkan setelah dipakai publik:** pengunjung bisa mengira
-10 barang itu benar-benar hilang di kampus, lalu menghubungi nomor yang tidak
-ada. Nama pelapor & nomor WhatsApp di `data/data.json` adalah data fiktif.
+1. `getAllProgressive()` sekarang **menggabungkan** data Firebase + lokal.
+   Laporan Firebase menang kalau ID-nya sama, sisanya tetap tampil.
+   Kalau Firebase kosong, data contoh tidak dihapus.
+2. `LocalStore.getAll()` menandai laporan dari `data/data.json` dengan
+   `_contoh: true`.
+3. Kartu laporan di beranda, Daftar, dan Detail diberi label **CONTOH**
+   (kelas `.badge-contoh`, posisi kanan atas) supaya pengunjung tidak
+   mengira itu barang hilang sungguhan.
 
-**Perlu (pilih salah satu):**
+**Hasil terverifikasi di situs live:** beranda menampilkan **10 total,
+8 masih dicari, 2 sudah kembali**; halaman Daftar menampilkan
+"Menampilkan 9 dari 10 laporan" dengan label CONTOH di setiap kartu.
 
-1. Beri label jelas "Contoh" pada kartu yang berasal dari `data/data.json`
-2. Kosongkan `data/data.json` (`[]`) setelah ada laporan asli
-3. Pertahankan sebagai demo, tapi tampilkan hanya di mode lokal
+**Sisa risiko (ℹ️):** nama pelapor, NIM, email, dan nomor WhatsApp di
+`data/data.json` adalah **data fiktif**. Selama data contoh masih tampil,
+jangan gunakan nomor di dalamnya untuk kontak nyata. Kalau nanti sudah ada
+laporan asli dan ingin data contoh disembunyikan, cukup kosongkan
+`data/data.json` menjadi `[]`.
 
-Cara membedakan: laporan contoh punya ID berawalan `LPR-20260210` s/d
-`LPR-20260215`. Laporan asli memakai tanggal hari ini.
 
-### 3.9 🧹 Ada 1 laporan uji tertinggal di Firestore
+### 3.9 ✅ Tidak ada laporan uji tertinggal
 
-Saat memverifikasi keamanan produksi pada 12 Nov 2026, saya membuat laporan
-uji lewat API:
+Semua laporan uji sudah dihapus. Diverifikasi lewat `runQuery` ke Firestore
+produksi: koleksi `reports` berisi **0 dokumen**.
 
-```
-ID: LPR-CEK-171929   ("Uji Verifikasi")
-```
+Laporan uji yang dibuat & dihapus selama pengerjaan:
+`LPR-CEK-171929`, `LPR-UJI-BESAR-174450`, `LPR-OK-182453`,
+`LPR-ADM-183446`, `LPR-VER-*`.
 
-Laporan ini **masih ada** di Firestore karena service account sudah tidak
-tersedia untuk menghapusnya (hapus butuh admin).
-
-**Perlu:** hapus manual di
-<https://console.firebase.google.com/project/temubalik-26f80/firestore/data>
-→ koleksi `reports` → dokumen `LPR-CEK-171929`.
 
 ### 3.10 ✅ Tombol "Masuk dengan Google" ADA di situs live — koreksi catatan
 
@@ -399,15 +401,16 @@ tidak ikut ter-upload.
 `README-deploy.md` menyebut "33 file ter-upload". Angka ini berubah setiap
 kali ada file baru. Sebaiknya tidak menyebut angka pasti.
 
-### 4.5 ✅ Catatan ini sempat memuat 2 kesalahan — SUDAH DIKOREKSI
+### 4.5 ✅ Catatan ini sempat memuat 3 kesalahan — SUDAH DIKOREKSI
 
 Supaya tidak terulang, dicatat apa yang salah:
 
 **Kesalahan 1 — "tombol Google tidak muncul".**
 
 Saya menyimpulkan itu dari screenshot tanpa menunggu Firebase selesai
-inisialisasi. Setelah diuji ulang, tombolnya **ada dan berfungsi**
-(§3.10). Pelajarannya: screenshot headless tidak menunggu JavaScript async.
+inisialisasi. Setelah diuji ulang dengan jeda yang cukup, tombolnya **ada
+dan berfungsi** (§3.10). Pelajarannya: screenshot headless tidak menunggu
+JavaScript async.
 
 **Kesalahan 2 — "10 laporan contoh bercampur dengan data asli".**
 
@@ -415,34 +418,67 @@ Saya menulis seolah Firestore sudah berisi banyak laporan pengguna. Kenyataan:
 Firestore hanya berisi **1 dokumen** (laporan uji saya). 10 laporan yang
 tampil seluruhnya berasal dari `data/data.json` (§3.8).
 
+**Kesalahan 3 — "email admin `dzihni777@gmail.com`".**
+
+Email itu saya pakai di rules & dokumentasi atas permintaan awal, **tanpa
+memeriksa** akun mana yang benar-benar ada di Firebase Auth. Ternyata akun
+admin terdaftar sebagai **`r9723419@gmail.com`** dengan UID
+`VHG3YKblzHQzqK0LCVpaKpAbquL2`. Kalau dibiarkan, aturan akan menyebut email
+yang tidak punya akun, dan panel admin tidak bisa dipakai.
+
+Sudah dikoreksi di `firestore.rules`, `tentang.html`, kedua README, dan
+catatan ini. Pelajarannya: **periksa dulu isi Auth**, jangan percaya email
+yang disebutkan di chat.
+
+### 4.6 ⚠️ Provider Google tidak terlihat di `/config`
+
+Endpoint `admin/v2/projects/{id}/config` hanya menampilkan provider `email`.
+Itu **bukan** berarti Google mati — provider Google dikelola di
+`defaultSupportedIdpConfigs/google.com` dan statusnya `enabled: true`.
+
+Jangan simpulkan provider mati hanya dari `/config`.
+
+### 4.7 ⚠️ `firebase deploy --only firestore:rules` bisa mencoba membuat database baru
+
+Tanpa `"database": "default"` di `firebase.json`, CLI mengira database
+`(default)` belum ada lalu mencoba membuatnya → gagal dengan
+`This API method requires billing to be enabled`.
+
+Sudah diperbaiki: `firebase.json` kini punya `"firestore": { "database": "default" }`.
+
+Catatan tambahan: deploy rules bisa melaporkan
+`Failed to make request to .../v1/projects/...:test` **padahal berhasil**.
+Cek `GET /releases/cloud.firestore/default` untuk memastikan `rulesetName`
+menunjuk ruleset terbaru.
+
+
 ---
 
 ## 5. Langkah selanjutnya (urutan yang disarankan)
 
-### Wajib — supaya situs benar-benar berfungsi
+### Wajib — supaya situs benar-benar aman dipakai
 
-1. **Commit dulu** perubahan yang ada (§8) — supaya deploy berikutnya
-   membawa kode terbaru, bukan versi lama lagi.
-2. **Deploy ulang dengan benar** — kode live masih versi lama (§3.2).
-   Tanpa ini, semua perbaikan berikutnya tidak akan terasa.
-3. **Ganti email admin** di `firestore.rules` baris 36 → publish rules
-4. **Buat akun admin** di Firebase Authentication (email harus sama dengan
-   yang di rules)
-5. **Publish rules baru** yang membatasi foto 700 KB (§3.5)
-6. **Hapus laporan uji** `LPR-CEK-171929` (§3.9)
-7. **Rotasi service account** yang bocor (§3.3)
+1. **Rotasi service account** yang bocor (§3.3). Kunci ini masih berfungsi
+   dan memberi akses penuh ke project.
+2. **Atur kata sandi akun admin** atau pakai **Masuk dengan Google** (§3.4).
+3. **Putuskan kebijakan privasi**: `allow read: if true` membuat `whatsapp`
+   dan `namaPelapor` terbaca publik lewat API tanpa login.
 
 ### Sebaiknya — memperkuat
 
-8. Putuskan nasib data contoh di `data/data.json` (§3.8) sebelum situs
-   dipromosikan ke pengguna nyata
-9. Pertimbangkan `npm run config` dijalankan otomatis saat build CI
+4. Pertimbangkan `Cache-Control` JS dari `max-age=3600` → `no-cache`
+   supaya pengunjung tidak tertahan kode lama setelah deploy.
+5. Aktifkan App Check kalau mulai disalahgunakan (§3.6).
+6. Kalau sudah ada laporan asli dan ingin data contoh disembunyikan,
+   kosongkan `data/data.json` menjadi `[]`.
 
 ### Opsional — kalau mau lanjut
 
-10. Aktifkan App Check kalau mulai disalahgunakan
-11. Pindahkan foto ke Firebase Storage (butuh paket Blaze)
-12. Putuskan nasib folder `server/`
+7. Pindahkan foto ke Firebase Storage (butuh paket Blaze).
+8. Putuskan nasib folder `server/` (§3.7).
+9. Hapus folder `.git` dari riwayat deploy lama di Firebase (object lama
+   mungkin masih tersimpan meski URL-nya sudah 404).
+
 
 ---
 
@@ -517,39 +553,35 @@ node tests/firebase.test.cjs
 
 ---
 
-## 8. Perubahan yang belum di-commit
+## 8. Status commit & deploy
 
-Per 12 November 2026, working tree berisi perubahan dari sesi perbaikan ini:
+**Semua perubahan sudah di-commit dan di-push.** Working tree bersih.
 
-| File | Perubahan |
-| --- | --- |
-| `.env.example` | +11 variabel `FIREBASE_*` (sebelumnya tidak ada) |
-| `firebase.json` | +`predeploy: npm run config`, ignore `scripts/**` & `CATATAN-PROGRES.md` |
-| `tests/dom.test.cjs` | baca `demoPassword` dari config, bukan hardcode |
-| `tests/firebase.test.cjs` | idem |
-| `tests/interaksi.test.cjs` | idem |
-| `tests/browser.test.cjs` | idem |
-| `js/form.js` | kompresi foto bertahap + pesan error yang ramah |
-| `firestore.rules` | batas foto `4.000.000` → `700.000` |
-| `CATATAN-PROGRES.md` | file baru (dokumen ini) |
+Riwayat commit terakhir:
 
-**Perlu:**
-
-```bash
-git add -A
-git commit -m "fix: batas foto selaras Firestore, .env.example lengkap, tes tidak hardcode sandi"
+```
+a46d2e1  fix: samakan email admin dengan akun Auth yang sebenarnya
+febc05f  chore: jangan commit firebase-debug.log
+b09a386  feat(rules): kenali admin lewat UID, bukan hanya email
+be0da43  fix: perbaiki teks yang bilang data hanya di browser
+b1bd790  feat: isi email admin & nomor WhatsApp asli
+c9bf0dd  fix: jangan unggah .git & .firebase ke Hosting
 ```
 
-Setelah commit, deploy ulang agar situs memakai kode terbaru:
+Deploy terakhir: **hosting + firestore rules**, keduanya `Deploy complete!`.
+Ruleset aktif: `1d6548c4-d665-4615-93c6-be0e4e1941e6` (memuat UID admin,
+email, dan batas foto 700000).
+
+Kalau mengubah kode lagi:
 
 ```bash
 npm run config
 firebase deploy --only hosting
-firebase deploy --only firestore:rules   # untuk batas foto 700 KB
 ```
 
-**Penting:** commit dulu, baru deploy. Kalau deploy dari mesin lain, pastikan
-mesin itu sudah `git pull` supaya kode terbaru ikut.
+`predeploy` sudah menjalankan `npm run config` otomatis, tapi menjalankannya
+manual lebih dulu membuat kesalahan konfigurasi cepat terlihat.
+
 
 ---
 
@@ -560,6 +592,13 @@ mesin itu sudah `git pull` supaya kode terbaru ikut.
 | 11 Nov 2026 | Integrasi Firebase, perbaikan database ID, publish rules, deploy hosting |
 | 11 Nov 2026 | Pindahkan data sensitif ke `.env` + fail-closed |
 | 12 Nov 2026 | Audit, lengkapi `.env.example`, `predeploy` hook, tes tidak hardcode, catatan ini |
-| 12 Nov 2026 | Verifikasi live: rules aktif & aman; ditemukan kode live masih versi lama (§3.2) |
+| 12 Nov 2026 | Verifikasi live: rules aktif & aman |
 | 12 Nov 2026 | Uji DOM & screenshot ke situs live: Firebase aktif, tombol Google ada (koreksi §3.10) |
 | 12 Nov 2026 | Perbaiki batas foto: kompresi bertahap + rules 700 KB (§3.5) |
+| 12 Nov 2026 | Ganti email admin & nomor WhatsApp asli di 7 halaman + rules |
+| 12 Nov 2026 | Perbaiki teks "data hanya di browser" yang sudah tidak benar |
+| 12 Nov 2026 | Tambah UID admin `VHG3YKblz...` ke `isAdmin()`, publish rules |
+| 12 Nov 2026 | **Koreksi besar:** akun admin sebenarnya `r9723419@gmail.com`, bukan `dzihni777@gmail.com`. Semua dokumen disamakan (§4.5) |
+| 12 Nov 2026 | Verifikasi login Google aktif via `defaultSupportedIdpConfigs` (§4.6) |
+| 12 Nov 2026 | **Perbaiki bug data contoh hilang** — `getAllProgressive` kini menggabung, bukan mengganti; tambah label CONTOH (§3.8) |
+

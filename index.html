@@ -259,6 +259,7 @@
               <span class="badge ${r.status === "Selesai" ? "badge-selesai" : "badge-aktif"}">
                 <span class="dot"></span>${escapeHtml(r.status)}
               </span>
+              ${r._contoh ? `<span class="badge badge-contoh" title="Ini data contoh, bukan laporan pengguna">Contoh</span>` : ""}
             </div>
             <div class="report-body">
               <span class="report-cat">${escapeHtml(r.kategori)}</span>

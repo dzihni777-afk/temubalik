@@ -92,6 +92,7 @@
           <div class="row" style="gap:10px;">
             <span class="badge ${badgeClass}"><span class="dot"></span>${escapeHtml(r.status)}</span>
             <span class="badge badge-neutral">${escapeHtml(r.kategori)}</span>
+            ${r._contoh ? `<span class="badge badge-contoh" title="Ini data contoh, bukan laporan pengguna">Contoh</span>` : ""}
             <span class="report-code">${escapeHtml(r.id)}</span>
           </div>
         </div>

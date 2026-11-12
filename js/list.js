@@ -141,11 +141,16 @@
 
   function cardHtml(r) {
     const badgeClass = r.status === "Selesai" ? "badge-selesai" : "badge-aktif";
+    // Laporan dari data contoh diberi label supaya tidak dikira laporan nyata.
+    const contohBadge = r._contoh
+      ? `<span class="badge badge-contoh" title="Ini data contoh, bukan laporan pengguna">Contoh</span>`
+      : "";
     return `
       <a class="report-card" href="detail.html?id=${encodeURIComponent(r.id)}">
         <div class="report-thumb">
           <img src="${escapeHtml(r.foto || "assets/img/placeholder.svg")}" alt="Foto ${escapeHtml(r.namaBarang)}" loading="lazy" />
           <span class="badge ${badgeClass}"><span class="dot"></span>${escapeHtml(r.status)}</span>
+          ${contohBadge}
         </div>
         <div class="report-body">
           <span class="report-cat">${escapeHtml(r.kategori)}</span>
