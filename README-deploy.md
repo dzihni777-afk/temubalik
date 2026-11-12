@@ -51,42 +51,42 @@ menulis dan membaca dari Firestore.
 
 ## Langkah yang masih perlu Anda lakukan
 
-### 1. Ganti email admin di Security Rules 🔴 WAJIB
+### 1. Email admin di Security Rules ✅ SUDAH DIISI
 
-Saat ini daftar admin di `firestore.rules` masih berisi email contoh
-`admin@temubalik.com`. Selama belum diganti, **tidak ada yang bisa mengubah
-status atau menghapus laporan**.
+Daftar admin di `firestore.rules` sekarang berisi email asli:
+
+```
+"dzihni777@gmail.com"
+```
+
+Yang masih perlu: **publish rules** supaya berlaku di server.
 
 1. Buka <https://console.firebase.google.com/project/temubalik-26f80/firestore/rules>
-2. Cari baris:
+2. Salin seluruh isi `firestore.rules` ke editor
+3. Klik **Publish**
 
-   ```
-   "admin@temubalik.com"   // ← GANTI dengan email admin Anda
-   ```
-
-3. Ganti dengan email admin Anda (boleh email Google)
-4. Klik **Publish**
-
-Setelah itu, jalankan dari folder proyek untuk menerbitkan ulang lewat CLI
-(kalau Anda sudah `firebase login`):
+Atau lewat CLI:
 
 ```bash
 firebase deploy --only firestore:rules
 ```
+
+Setelah itu, pastikan akun `dzihni777@gmail.com` sudah dibuat di Firebase
+Authentication (lihat `README-firebase.md` langkah 3).
 
 ### 2. Buat akun admin
 
 **Opsi A — Email & kata sandi**
 
 1. <https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
-2. **Add user** → isi email & kata sandi (min. 6 karakter)
-3. Email harus sama dengan yang Anda tulis di `firestore.rules`
+2. **Add user** → email `dzihni777@gmail.com`, isi kata sandi (min. 6 karakter)
+3. Email harus sama dengan yang ada di `firestore.rules`
 
 **Opsi B — Google**
 
-Tidak perlu membuat akun. Cukup login dengan Google di `/admin.html`, tapi
-email Google tersebut **wajib terdaftar** di `firestore.rules`. Kalau belum,
-muncul pesan "Akun Google ini bukan admin".
+Tidak perlu membuat akun. Cukup login dengan Google memakai
+`dzihni777@gmail.com` di `/admin.html`. Email itu sudah terdaftar di
+`firestore.rules`, jadi langsung dikenali sebagai admin.
 
 ### 3. Daftarkan domain untuk login Google
 

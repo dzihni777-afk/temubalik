@@ -33,7 +33,7 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.admin == true ||
         request.auth.token.email in [
-          "admin@temubalik.com"   // ← GANTI dengan email admin Anda
+          "dzihni777@gmail.com"
         ]
       );
     }

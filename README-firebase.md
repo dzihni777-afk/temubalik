@@ -134,11 +134,13 @@ Nama pastinya bisa dilihat di
 3. Pada daftar provider, pilih **Email/Password**
 4. Aktifkan **Enable**, lalu **Save**
 5. Pindah ke tab **Users** → **Add user**
-6. Isi email & kata sandi admin, contoh:
-   - Email: `admin@temubalik.com`
+6. Isi email & kata sandi admin:
+   - Email: `dzihni777@gmail.com`
    - Password: (pilih sandi kuat, minimal 6 karakter)
 
-Akun inilah yang dipakai untuk masuk ke `admin.html`.
+Akun inilah yang dipakai untuk masuk ke `admin.html`. Kalau lebih suka tanpa
+kata sandi, lewati langkah ini dan pakai tombol **Masuk dengan Google**
+dengan akun Google yang sama.
 
 ---
 
@@ -148,10 +150,10 @@ Tanpa langkah ini, Firestore menolak semua akses (default production mode).
 
 1. Buka <https://console.firebase.google.com/project/temubalik-26f80/firestore/rules>
 2. Buka file `firestore.rules` di proyek ini
-3. **Ganti baris ini** dengan email admin Anda dari langkah 3:
+3. Pastikan daftar admin berisi email Anda:
 
 ```
-"admin@temubalik.com"   // ← GANTI dengan email admin Anda
+"dzihni777@gmail.com"
 ```
 
 4. Salin **seluruh** isi `firestore.rules` ke editor di Console

@@ -127,24 +127,30 @@ Uji keamanan dari luar (tanpa login):
 
 Diurutkan dari yang paling penting. Tanda: 🔴 wajib · ⚠️ sebaiknya · ℹ️ info · ✅ sudah diperbaiki.
 
-**Ringkas — 3 hal wajib yang belum selesai:**
+**Ringkas — yang wajib belum selesai:**
 
 | # | Hal | Kenapa penting |
 | --- | --- | --- |
-| §3.2 | Kode live masih versi lama | Semua perbaikan tidak terasa di situs |
-| §3.1 | Email admin masih placeholder | Panel admin tidak bisa dipakai siapa pun |
+| §3.2 | Rules belum dipublish | Email admin & batas foto baru belum aktif |
 | §3.3 | Service account bocor | Kunci akses penuh belum dicabut |
+| §3.4 | Akun admin belum dibuat | Panel admin belum bisa dipakai |
+| §3.8 | Data contoh hilang setelah sync | Halaman berubah 10 laporan → 1 |
 
-### 3.1 🔴 Email admin di rules masih placeholder
+### 3.1 ✅ Email admin di rules sudah diisi — tinggal publish
 
 ```rules
-"admin@temubalik.com"   // ← GANTI dengan email admin Anda
+"dzihni777@gmail.com"
 ```
 
-Selama belum diganti, **tidak ada yang bisa mengubah status atau menghapus
-laporan**. Situs berfungsi untuk pengunjung, tapi panel admin tidak berguna.
+**Sudah diperbaiki 12 Nov 2026.** Yang masih perlu: **publish rules** supaya
+berlaku di server, dan **buat akunnya** di Firebase Authentication.
 
-**Perlu:** ganti dengan email asli → publish ulang rules.
+Tanpa publish, rules lama (berisi `admin@temubalik.com`) masih aktif di
+server, sehingga panel admin belum bisa dipakai.
+
+```bash
+firebase deploy --only firestore:rules
+```
 
 ### 3.2 🔴 Deploy terakhir belum membawa kode terbaru
 
