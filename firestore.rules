@@ -27,11 +27,18 @@ service cloud.firestore {
     }
 
     // Admin = punya custom claim admin:true
+    //         ATAU UID-nya ada di daftar ADMIN_UIDS
     //         ATAU email-nya ada di daftar ADMIN_EMAILS di bawah.
-    // Cara paling mudah: isi daftar email di bawah, tidak perlu set claim.
+    //
+    // UID lebih aman daripada email: UID tidak bisa diubah dan tidak
+    // bergantung pada status verifikasi email. Email dipakai sebagai
+    // cadangan supaya tetap bisa masuk kalau akun dibuat ulang.
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
+        request.auth.uid in [
+          "VHG3YKblzHQzqK0LCVpaKpAbquL2"
+        ] ||
         request.auth.token.email in [
           "dzihni777@gmail.com"
         ]
