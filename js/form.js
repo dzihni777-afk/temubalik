@@ -19,6 +19,13 @@
 
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
+  // Batas aman untuk satu dokumen Firestore: 1 MiB (1.048.576 byte) untuk
+  // SELURUH dokumen, bukan hanya foto. Base64 membengkak ~33% dari ukuran
+  // biner, dan masih ada field teks lain. Nilai ini HARUS sama atau lebih
+  // kecil dari batas di firestore.rules (700000) — kalau lebih besar,
+  // pengguna bisa lolos di frontend tapi ditolak server.
+  const MAX_FOTO_DATAURL = 700000;
+
   /** Foto yang sudah dikompres (data URL) */
   let fotoDataUrl = "";
 
@@ -144,7 +151,31 @@
     }
 
     try {
-      const compressed = await compressImage(file, 1000, 0.72);
+      // Kompres bertahap: kalau hasilnya masih terlalu besar untuk satu
+      // dokumen Firestore (1 MiB), turunkan mutu & ukuran lalu coba lagi.
+      // Tanpa ini, foto besar akan ditolak Firestore dengan pesan teknis
+      // yang membingungkan pengguna.
+      const attempts = [
+        [1000, 0.72],
+        [900, 0.62],
+        [800, 0.52],
+        [640, 0.45],
+      ];
+
+      let compressed = "";
+      for (const [maxSize, quality] of attempts) {
+        compressed = await compressImage(file, maxSize, quality);
+        if (compressed.length <= MAX_FOTO_DATAURL) break;
+      }
+
+      if (compressed.length > MAX_FOTO_DATAURL) {
+        toast(
+          "Foto masih terlalu besar setelah dikompres. Coba foto lain atau perkecil resolusinya.",
+          "error"
+        );
+        return;
+      }
+
       fotoDataUrl = compressed;
       renderPreview();
       toast("Foto berhasil dilampirkan.", "success", 2400);
@@ -322,6 +353,13 @@
       const message = String((err && err.message) || "");
       if (/permission|insufficient/i.test(message)) {
         toast("Server menolak penyimpanan. Periksa Security Rules Firestore Anda.", "error");
+      } else if (/invalid-argument|too large|maximum.*size|exceeds/i.test(message)) {
+        // Firestore menolak dokumen > 1 MiB. Pesan aslinya teknis, jadi
+        // diterjemahkan supaya pengguna tahu apa yang harus dilakukan.
+        toast(
+          "Laporan terlalu besar untuk disimpan. Coba lampirkan foto yang lebih kecil.",
+          "error"
+        );
       } else {
         toast(message || "Terjadi kesalahan saat menyimpan laporan.", "error");
       }

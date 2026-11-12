@@ -80,8 +80,12 @@ service cloud.firestore {
         && d.warna is string && d.warna.size() > 0 && d.warna.size() <= 40
         && d.whatsapp is string && d.whatsapp.size() >= 9 && d.whatsapp.size() <= 20
 
-        // Foto: hanya data URL gambar atau aset bawaan, maksimal ~3MB
-        && d.foto is string && d.foto.size() <= 4000000
+        // Foto: hanya data URL gambar atau aset bawaan.
+        // Batas 700.000 byte diselaraskan dengan js/form.js. Alasannya:
+        // Firestore menolak dokumen > 1 MiB (1.048.576 byte) untuk SELURUH
+        // dokumen, dan base64 membengkak ~33% dari ukuran biner. Batas lama
+        // (4.000.000) mengizinkan foto yang pasti ditolak Firestore.
+        && d.foto is string && d.foto.size() <= 700000
         && (
              d.foto.matches('^data:image/(png|jpeg|jpg|webp);base64,.*')
              || d.foto.matches('^assets/img/[A-Za-z0-9._-]+\\.(svg|png|jpe?g|webp)$')
