@@ -40,12 +40,27 @@
   async function showStorageMode() {
     const mode = await Store.mode();
 
-    // Tombol Google hanya berguna kalau Firebase aktif.
-    if (googleWrap && Store.canUseGoogle()) {
-      googleWrap.classList.remove("hidden");
-    }
+    // Tombol Google hanya berguna kalau Firebase Auth aktif.
+    // Auth bisa baru siap setelah mode() selesai, jadi periksa ulang nanti.
+    const revealGoogle = () => {
+      if (googleWrap && Store.canUseGoogle()) googleWrap.classList.remove("hidden");
+    };
+    revealGoogle();
+    if (!Store.canUseGoogle()) setTimeout(revealGoogle, 3000);
 
     if (mode === "firebase") return;
+
+    // Mode lokal. Bedakan dua sebab yang sangat berbeda:
+    //  (a) Auth juga mati  → memang mode demo lokal
+    //  (b) Auth hidup, hanya Firestore bermasalah → login tetap lewat Firebase
+    if (Store.usingAuth()) {
+      if (loginHint) {
+        loginHint.textContent =
+          "Tersambung ke Firebase Auth. Data laporan sedang memakai salinan lokal.";
+      }
+      if (loginNote) loginNote.textContent = "";
+      return;
+    }
 
     // Mode lokal: jelaskan ke pengguna, jangan diam-diam.
     if (loginHint) {
@@ -117,8 +132,9 @@
     const email = (emailInput.value || "").trim();
     const password = passwordInput.value || "";
 
-    // Email hanya wajib saat Firebase aktif.
-    if (Store.usingFirebase()) {
+    // Email wajib saat Firebase Auth aktif. Pakai usingAuth(), bukan
+    // usingFirebase(): saat Firestore bermasalah tapi Auth sehat, email tetap wajib.
+    if (Store.usingAuth()) {
       if (!email) {
         setError("email", "Email wajib diisi.");
         emailInput.focus();
@@ -148,6 +164,16 @@
       const code = err && err.code ? String(err.code) : "";
       const message = String((err && err.message) || "");
 
+      // Tiga kondisi berbeda, jangan disamakan:
+      //  (1) Firebase masih menyiapkan koneksi → minta tunggu, bukan salah sandi
+      //  (2) Firebase benar-benar gagal → tampilkan alasan aslinya
+      //  (3) kredensial salah / batasan lain → pesan spesifik
+      const masihMemuat = /memuat|menyiapkan|belum siap|timeout menunggu/i.test(message);
+      const gagalKonek =
+        /tidak dapat dihubungi|tidak dapat terhubung|network-request-failed/i.test(
+          code + " " + message
+        );
+
       if (
         code.includes("invalid-credential") ||
         code.includes("wrong-password") ||
@@ -158,12 +184,26 @@
         setError("password", "Email atau kata sandi salah. Coba lagi.");
       } else if (code.includes("too-many-requests")) {
         setError("password", "Terlalu banyak percobaan. Coba lagi beberapa saat.");
-      } else if (code.includes("network-request-failed")) {
-        setError("password", "Tidak ada koneksi ke Firebase. Periksa internet Anda.");
       } else if (code.includes("operation-not-allowed")) {
         setError(
           "password",
           "Login email/kata sandi belum diaktifkan di Firebase Console."
+        );
+      } else if (code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) {
+        setError("password", "Jendela login Google ditutup. Coba lagi bila perlu.");
+      } else if (code.includes("popup-blocked")) {
+        setError(
+          "password",
+          "Jendela Google diblokir browser. Izinkan pop-up untuk situs ini lalu coba lagi."
+        );
+      } else if (gagalKonek) {
+        // Didahulukan: pesan gagal konek memuat alasan asli yang bisa saja
+        // mengandung kata "memuat", jadi jangan sampai tertangkap pola di atas.
+        setError("password", message);
+      } else if (masihMemuat) {
+        setError(
+          "password",
+          "Firebase masih menyiapkan koneksi. Tunggu sebentar lalu tekan Masuk lagi."
         );
       } else {
         setError("password", message || "Gagal masuk. Coba lagi.");

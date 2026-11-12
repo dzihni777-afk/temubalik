@@ -16,7 +16,7 @@
 | Security Rules | ✅ terpublish & aktif (UID + email admin terdaftar) |
 | Hosting online | ✅ live, kode lokal = live (hash identik) |
 | Data sensitif ke `.env` | ✅ selesai & live |
-| Uji otomatis | ✅ 296 pemeriksaan lulus |
+| Uji otomatis | ✅ 323 pemeriksaan lulus |
 | Commit | ✅ semua ter-commit & ter-push |
 
 **Alamat situs:** <https://temubalik-26f80.web.app>
@@ -36,7 +36,7 @@
 | Foto > 700 KB | ✅ ditolak rules | 403 |
 | Foto normal | ✅ diterima | 200 |
 | Login Google (tombol) | ✅ tampil & provider aktif | screenshot + `createAuthUri` |
-| Login admin (email) | ✅ berhasil | form terisi → panel admin terbuka |
+| Login admin (email) | ✅ berhasil, termasuk saat Firestore mati | form terisi → panel admin terbuka |
 | Login admin (Google) | ✅ tombol tampil, provider aktif | `createAuthUri` → authUri |
 
 **Akun admin:** UID `VHG3YKblzHQzqK0LCVpaKpAbquL2`, email
@@ -98,6 +98,45 @@ masih kosong) menjawab, 10 laporan contoh lenyap dan halaman menampilkan
 "0 laporan". Sekarang hasilnya **digabung**, dan kartu contoh diberi label
 CONTOH. Detail di §3.8.
 
+**Bug 5 — "Firebase tidak dapat dihubungi, jadi login admin dinonaktifkan"**
+✅ diperbaiki 12 Nov 2026
+
+Gejala: saat login email + kata sandi di situs live, muncul pesan itu dan admin
+tidak bisa masuk — padahal akun & sandinya benar. Kadang berhasil kalau dicoba
+ulang. Ini **bukan** masalah koneksi pengguna, melainkan tiga bug logika yang
+saling menumpuk:
+
+| # | Bug | Letak | Akibat |
+| --- | --- | --- | --- |
+| A | Batas waktu tidak sinkron | `storage.js` `FIREBASE_TIMEOUT_MS = 6000` vs adapter `OP_TIMEOUT_MS = 8000` | login menyerah di detik 6, padahal probe Firestore baru sukses di detik 7 |
+| B | Analytics menahan status siap | `firebase-adapter.js` — `state.ok = true` ditulis **setelah** `await loadScript(analytics)` tanpa timeout | analytics diblokir pemblokir iklan → `init()` tak pernah selesai → login mati permanen |
+| C | Firestore mematikan Auth | `fb()` mengembalikan `null` kalau `state.degraded` | satu baca Firestore timeout → login diblokir, padahal Auth sehat dan tidak butuh Firestore |
+
+Perbaikannya — **memisahkan Auth dari Firestore**:
+
+- `state.authReady` di-set **sebelum** probe Firestore, jadi Auth siap lebih dulu.
+- `state.ok = true` dipindah **sebelum** analytics; analytics jadi
+  *fire-and-forget* dengan `withTimeout()` sendiri.
+- Helper baru `waitAuth(timeoutMs = 20000)` di adapter + `firebaseAuthReady()`
+  dan `fbAuth()` di `storage.js`. Semua jalur admin (`signInAdmin`,
+  `signInAdminWithGoogle`, `isAdmin`, `waitAdmin`, `adminEmail`,
+  `onAdminChange`, `signOutAdmin`, `canUseGoogle`) memakai jalur Auth.
+- `signIn()` / `signInWithGoogle()` memakai `waitAuth()` dan menyertakan
+  `state.reason` di pesan error.
+- `admin.js`: tiga kondisi dibedakan — *masih memuat* / *gagal terhubung
+  (tampilkan alasan asli)* / *kredensial salah*. Ditambah pemetaan
+  `popup-blocked` dan `popup-closed-by-user`.
+
+**Yang TIDAK dilonggarkan:** guard `isLocalHost()` + sandi demo tetap utuh.
+Sandi demo tetap hanya berlaku di localhost, dan tetap ditolak di domain publik
+walau Firebase mati. Diuji eksplisit di §2.4.
+
+**Bukti uji di browser sungguhan (Firefox headless):** dengan proxy yang
+menahan koneksi `firestore.googleapis.com` sampai probe timeout, hasilnya
+`isReady=false` + alasan *"Uji koneksi Firestore melebihi batas waktu 8000ms"*
+tetapi `isAuthReady=true` → **login berhasil** dan panel admin terbuka berisi
+10 laporan. Dulu kondisi ini pasti menolak login.
+
 ### 2.3 Data sensitif dipindahkan ke `.env`
 
 | Sebelum | Sesudah |
@@ -117,13 +156,38 @@ ditolak total; tanpa `FIREBASE_DEMO_PASSWORD`, login demo frontend ditolak.
 
 ```
 api                 101 lulus, 0 gagal
-storage              30 lulus, 0 gagal
+storage              43 lulus, 0 gagal   (+13 tes regresi login)
 form                 29 lulus, 0 gagal
 dom                  46 lulus, 0 gagal
-firebase-mock        38 lulus, 0 gagal
+firebase-mock        52 lulus, 0 gagal   (+14 tes regresi login)
 firebase-integration 19 lulus, 0 gagal
-firebase-offline     33 lulus, 0 gagal
+firebase-offline     33 lulus, 0 gagal   (file: tests/firebase.test.cjs)
 ```
+
+**Total: 323 pemeriksaan, 0 gagal.**
+
+Tes regresi baru untuk Bug 5 (§2.2):
+
+| Yang diuji | Hasil |
+| --- | --- |
+| `state.ok` tetap `true` walau analytics gagal dimuat | ✅ |
+| `signIn` berhasil saat Firestore gagal / degraded | ✅ |
+| `signInAdmin` tidak menyerah saat Auth baru siap belakangan | ✅ |
+| `waitAdmin` / `isAdmin` / `adminEmail` membaca sesi lewat Auth | ✅ |
+| Domain publik + Firebase mati → **ditolak** (fail-closed) | ✅ |
+| Domain publik + Auth gagal → sandi demo **ditolak** | ✅ |
+| `localhost` + sandi demo benar → diterima | ✅ |
+| `localhost` + sandi demo salah → ditolak | ✅ |
+| `FIREBASE_DEMO_PASSWORD` kosong → login demo mati | ✅ |
+
+Uji login di browser sungguhan (Firefox headless):
+
+| Skenario | Hasil |
+| --- | --- |
+| Login email + sandi benar (lokal, port 8891) | ✅ panel admin terbuka |
+| Login email + sandi salah | ✅ "Email atau kata sandi salah. Coba lagi." |
+| Login saat Firestore **timeout** (proxy menahan 25 s) | ✅ berhasil — inilah bug aslinya |
+| Halaman `/admin` live | ✅ HTTP 200, tombol Google tampil, tanpa error JS |
 
 Uji keamanan dari luar (tanpa login):
 
@@ -490,6 +554,42 @@ sudah dipakai kode:
 grep -rhoE "process\.env\.[A-Z_]+" server/*.js scripts/*.js | sort -u
 ```
 
+### 4.9 ⚠️ Jangan campur kesiapan Firestore dengan kesiapan Auth
+
+**Penyebab Bug 5 di §2.2.** Pelajarannya penting dan mudah terulang:
+
+`FirebaseStore.ready()` dan `state.ok` itu menandakan **Firestore** siap dipakai
+untuk data. Auth adalah **layanan terpisah**. Dulu keduanya disamakan, sehingga:
+
+- satu baca Firestore timeout → `state.degraded = true` → `fb()` jadi `null`
+  → login admin ikut mati, padahal Auth sehat;
+- `state.ok = true` ditulis setelah memuat analytics → analytics diblokir
+  pemblokir iklan → login mati permanen;
+- gerbang tunggu 6 detik lebih pendek dari batas probe 8 detik → login menyerah
+  padahal probe baru saja sukses.
+
+**Aturan yang sekarang dipegang:**
+
+| Kebutuhan | Pakai | Jangan pakai |
+| --- | --- | --- |
+| Login / sesi admin | `fbAuth()` + `firebaseAuthReady()` | `fb()` / `firebaseReady()` |
+| Baca/tulis data laporan | `fb()` / `firebaseReady()` | jalur Auth |
+
+Kalau nanti menambah fitur yang butuh Auth, **pakai jalur Auth**. Kalau butuh
+data, baru pakai jalur Firestore. Jangan pernah memakai satu untuk menilai yang
+lain.
+
+**Cara cepat memastikan saat debug** (Console browser di `/admin`):
+
+```js
+FirebaseStore.isReady()      // Firestore siap? (data)
+FirebaseStore.isAuthReady()  // Auth siap? (login)
+FirebaseStore.reason()       // alasan kalau Firestore gagal
+```
+
+Kalau `isReady()===false` tapi `isAuthReady()===true`, login **tetap harus bisa**.
+Itu perilaku yang benar sekarang.
+
 
 ---
 
@@ -642,4 +742,5 @@ manual lebih dulu membuat kesalahan konfigurasi cepat terlihat.
 | 12 Nov 2026 | Verifikasi login Google aktif via `defaultSupportedIdpConfigs` (§4.6) |
 | 12 Nov 2026 | **Perbaiki bug data contoh hilang** — `getAllProgressive` kini menggabung, bukan mengganti; tambah label CONTOH (§3.8) |
 | 12 Nov 2026 | **Atur kata sandi akun admin & uji login lewat UI** — berhasil masuk panel admin (§3.4) |
+| 12 Nov 2026 | **Perbaiki bug "Firebase tidak dapat dihubungi, login dinonaktifkan"** — pisahkan Auth dari Firestore, analytics tidak menahan kesiapan, selaraskan timeout, pesan error jujur (§2.2 Bug 5, §4.9) |
 

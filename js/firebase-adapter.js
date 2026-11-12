@@ -44,7 +44,8 @@
   const state = {
     enabled: CFG.enabled !== false,
     ready: null,        // Promise<boolean>
-    ok: false,          // true kalau Firebase benar-benar siap dipakai
+    ok: false,          // true kalau FIRESTORE siap dipakai (untuk data)
+    authReady: false,   // true kalau FIREBASE AUTH siap (untuk login admin)
     reason: "",         // alasan kalau gagal
     app: null,
     db: null,
@@ -52,6 +53,8 @@
     user: null,
     verified: false,    // sudah pernah sukses baca dari Firestore?
     degraded: false,    // pernah gagal → langsung pakai lokal berikutnya
+    authReadyResolve: null,      // penunggu status login (waitAdmin)
+    authReadyResolveAuth: null,  // penunggu Auth siap (waitAuth / login)
   };
 
   const listeners = new Set();
@@ -221,27 +224,16 @@
       applyDatabaseId(state.db);
       state.auth = global.firebase.auth();
 
-      // Uji ringan: pastikan Firestore benar-benar bisa diakses.
-      // Kalau Firestore belum diaktifkan di Console atau jaringan buruk,
-      // error muncul di sini dan situs memakai localStorage.
-      await withTimeout(
-        state.db.collection(CFG.collection || "reports").limit(1).get(),
-        OP_TIMEOUT_MS,
-        "Uji koneksi Firestore"
-      );
+      // Auth siap SEJAK AWAL, terpisah dari Firestore.
+      // Login admin hanya butuh Auth, tidak butuh baca Firestore. Jadi kalau
+      // probe Firestore di bawah gagal/timeout, login tetap bisa dipakai.
+      state.authReady = true;
 
-      state.verified = true;
-
-      // Analytics hanya di http(s); di file:// akan error, jadi dilewati.
-      if (CFG.enableAnalytics && /^https?:$/.test(location.protocol)) {
-        try {
-          await loadScript(
-            `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-analytics-compat.js`
-          );
-          global.firebase.analytics();
-        } catch {
-          /* analytics opsional, abaikan */
-        }
+      // Beri tahu siapa pun yang sedang menunggu Auth (Store.signInAdmin).
+      if (state.authReadyResolveAuth) {
+        const done = state.authReadyResolveAuth;
+        state.authReadyResolveAuth = null;
+        done();
       }
 
       state.auth.onAuthStateChanged((user) => {
@@ -262,13 +254,48 @@
         });
       });
 
+      // Uji ringan: pastikan Firestore benar-benar bisa diakses.
+      // Kalau Firestore belum diaktifkan di Console atau jaringan buruk,
+      // error muncul di sini dan situs memakai localStorage.
+      await withTimeout(
+        state.db.collection(CFG.collection || "reports").limit(1).get(),
+        OP_TIMEOUT_MS,
+        "Uji koneksi Firestore"
+      );
+
+      state.verified = true;
+
+      // PENTING: tandai siap SEBELUM memuat analytics.
+      // Analytics opsional. Kalau skripnya diblokir pemblokir iklan atau
+      // lambat, dulu init() tidak pernah selesai sehingga login admin ikut
+      // mati — padahal Firebase sendiri sehat.
       state.ok = true;
       log(`aktif — project ${CFG.config.projectId}`);
       notifyStatus();
+
+      // Analytics dimuat tanpa ditunggu, dengan batas waktu sendiri.
+      if (CFG.enableAnalytics && /^https?:$/.test(location.protocol)) {
+        withTimeout(
+          loadScript(
+            `https://www.gstatic.com/firebasejs/${SDK_VERSION}/firebase-analytics-compat.js`
+          ).then(() => global.firebase.analytics()),
+          SDK_TIMEOUT_MS,
+          "Muat analytics"
+        ).catch(() => {
+          /* opsional — gagal pun tidak boleh mengganggu apa pun */
+        });
+      }
+
       return true;
     } catch (err) {
       state.ok = false;
       state.reason = err && err.message ? err.message : String(err);
+      // Lepas penunggu Auth supaya tidak menggantung kalau Auth belum sempat dibuat.
+      if (state.authReadyResolveAuth) {
+        const done = state.authReadyResolveAuth;
+        state.authReadyResolveAuth = null;
+        done();
+      }
       warn("gagal aktif, memakai localStorage.", state.reason);
       notifyStatus();
       return false;
@@ -500,9 +527,54 @@
   /* ------------------------------------------------------------------ */
   /* Auth admin                                                          */
   /* ------------------------------------------------------------------ */
+  /**
+   * Tunggu sampai Firebase Auth siap dipakai.
+   *
+   * BEDA dengan ready(): ready() menandakan FIRESTORE siap. Login admin
+   * hanya butuh Auth, jadi jangan sampai login ikut mati hanya karena
+   * probe Firestore timeout atau state.degraded.
+   *
+   * @returns {Promise<boolean>} true kalau state.auth tersedia
+   */
+  function waitAuth(timeoutMs = 20000) {
+    if (state.auth) return Promise.resolve(true);
+    if (!state.enabled) return Promise.resolve(false);
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        resolve(ok);
+      };
+
+      // init() memanggil state.authReadyResolveAuth begitu state.auth terisi,
+      // yaitu SEBELUM probe Firestore. Jadi login tidak menunggu Firestore.
+      const prev = state.authReadyResolveAuth;
+      state.authReadyResolveAuth = () => {
+        if (prev) prev();
+        finish(Boolean(state.auth));
+      };
+
+      // Kalau init() ternyata gagal total, jangan menggantung.
+      ready()
+        .then(() => finish(Boolean(state.auth)))
+        .catch(() => finish(Boolean(state.auth)));
+
+      // Batas waktu keras.
+      setTimeout(() => finish(Boolean(state.auth)), timeoutMs);
+    });
+  }
+
   async function signIn(email, password) {
-    await ready();
-    if (!state.auth) throw new Error("Firebase Auth tidak tersedia.");
+    const ok = await waitAuth();
+    if (!ok || !state.auth) {
+      throw new Error(
+        state.reason
+          ? `Firebase Auth tidak dapat dihubungi: ${state.reason}`
+          : "Firebase Auth tidak dapat dihubungi. Periksa koneksi internet Anda."
+      );
+    }
     const cred = await state.auth.signInWithEmailAndPassword(String(email).trim(), String(password));
     applyUser(cred.user);
     return state.user;
@@ -513,8 +585,14 @@
    * Popup bisa diblokir browser → beri pesan yang jelas, jangan gagal diam.
    */
   async function signInWithGoogle() {
-    await ready();
-    if (!state.auth) throw new Error("Firebase Auth tidak tersedia.");
+    const ok = await waitAuth();
+    if (!ok || !state.auth) {
+      throw new Error(
+        state.reason
+          ? `Firebase Auth tidak dapat dihubungi: ${state.reason}`
+          : "Firebase Auth tidak dapat dihubungi. Periksa koneksi internet Anda."
+      );
+    }
 
     const provider = new global.firebase.auth.GoogleAuthProvider();
     const cred = await state.auth.signInWithPopup(provider);
@@ -556,7 +634,9 @@
    */
   function waitAdmin(timeoutMs = 4000) {
     return new Promise((resolve) => {
-      if (!state.ok || !state.auth) {
+      // Syaratnya Auth siap, BUKAN Firestore siap. Sesi admin tetap harus
+      // terbaca walaupun probe Firestore sempat gagal.
+      if (!state.authReady || !state.auth) {
         resolve(null);
         return;
       }
@@ -584,7 +664,10 @@
 
   function onAuth(callback) {
     listeners.add(callback);
-    if (state.ok) callback(state.user);
+    // Auth siap → beri keadaan sekarang. Jangan pakai state.ok (Firestore),
+    // supaya panel admin tidak "berkedip" ke halaman login saat Firestore
+    // sedang bermasalah.
+    if (state.authReady) callback(state.user);
     return () => listeners.delete(callback);
   }
 
@@ -595,6 +678,7 @@
     ready,
     isEnabled: () => state.enabled,
     isReady: () => state.ok,
+    isAuthReady: () => state.authReady,
     isDegraded,
     onStatus,
     reason: () => state.reason,
@@ -613,6 +697,7 @@
     signOut,
     currentUser,
     waitAdmin,
+    waitAuth,
     onAuth,
   };
 

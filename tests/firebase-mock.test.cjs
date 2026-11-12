@@ -34,10 +34,17 @@ const check = (name, cond, extra = "") => {
 /* -------------------------------------------------------------------------
    Firestore tiruan: cukup untuk meniru API yang dipakai adapter.
    ------------------------------------------------------------------------- */
-function createMockFirebase() {
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.probeGagal]     uji koneksi Firestore di init() gagal
+ * @param {boolean} [opts.queryGagal]     setiap query Firestore gagal (memicu degraded)
+ * @param {boolean} [opts.analyticsError] firebase.analytics() melempar error
+ */
+function createMockFirebase(opts = {}) {
   const docs = new Map(); // id -> data mentah
   const counters = new Map();
   const calls = [];
+  let probeSudah = false;
 
   const Timestamp = {
     fromDate: (d) => ({ __ts: true, toDate: () => d, value: d.toISOString() }),
@@ -78,6 +85,14 @@ function createMockFirebase() {
         calls.push({ op: "limit", n });
         return {
           get: async () => {
+            if (opts.queryGagal) {
+              throw new Error("Firestore tidak tersedia (uji).");
+            }
+            // Probe di init() memakai limit(1).get() sebagai pemanggilan pertama.
+            if (opts.probeGagal && !probeSudah) {
+              probeSudah = true;
+              throw new Error("Uji koneksi Firestore melebihi batas waktu 8000ms.");
+            }
             const all = [...docs.entries()].map(([id, d]) => makeDoc(id, d)).slice(0, n);
             return { docs: all, empty: all.length === 0 };
           },
@@ -171,7 +186,10 @@ function createMockFirebase() {
     initializeApp: () => ({ name: "mock" }),
     firestore: () => db,
     auth: () => auth,
-    analytics: () => ({}),
+    analytics: () => {
+      if (opts.analyticsError) throw new Error("Analytics diblokir (uji).");
+      return {};
+    },
     firestoreNamespace: { Timestamp, FieldValue },
   };
 
@@ -411,6 +429,69 @@ async function runAdapter(mock, configOverrides = {}) {
     const win3 = await runAdapter(mock3, { config: {} });
     check("tidak aktif tanpa config", win3.FirebaseStore.isReady() === false);
     check("alasan dijelaskan", /konfigurasi/i.test(win3.FirebaseStore.reason()), win3.FirebaseStore.reason());
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* REGRESI: bug "Firebase tidak dapat dihubungi, login dinonaktifkan"  */
+  /* ------------------------------------------------------------------ */
+  console.log("\n=== Regresi: Auth tetap hidup saat Firestore bermasalah ===");
+  {
+    // Probe Firestore di init() gagal → state.ok false, tapi state.auth ADA.
+    const mock4 = createMockFirebase({ probeGagal: true });
+    const win4 = await runAdapter(mock4);
+    const FB4 = win4.FirebaseStore;
+
+    check("Firestore dianggap tidak siap", FB4.isReady() === false);
+    check("mode data = local", FB4.mode() === "local");
+    check("Auth tetap dilaporkan siap", FB4.isAuthReady() === true);
+    check("waitAuth() tetap true walau Firestore gagal", (await FB4.waitAuth(3000)) === true);
+
+    // Inilah bug aslinya: login dulu ikut mati.
+    const user4 = await FB4.signIn("admin@uji.com", "sandi-benar");
+    check(
+      "signIn TETAP berhasil saat Firestore gagal",
+      user4 && user4.email === "admin@uji.com",
+      user4 && user4.email
+    );
+    check("currentUser terisi", FB4.currentUser() && FB4.currentUser().uid === "uid-admin");
+    check("waitAdmin() membaca sesi walau Firestore gagal",
+      (await FB4.waitAdmin(3000)) && FB4.currentUser() !== null);
+
+    // Sandi salah tetap harus ditolak (jangan longgar).
+    let err4 = null;
+    try {
+      await FB4.signIn("admin@uji.com", "salah");
+    } catch (e) {
+      err4 = e;
+    }
+    check("sandi salah tetap ditolak", err4 && /invalid-credential/.test(String(err4.code)));
+  }
+
+  console.log("\n=== Regresi: degraded (baca Firestore gagal) tidak mematikan Auth ===");
+  {
+    const mock5 = createMockFirebase({ queryGagal: true });
+    const win5 = await runAdapter(mock5);
+    const FB5 = win5.FirebaseStore;
+
+    // Probe di init() juga lewat queryGagal → init() gagal.
+    // Sekarang picu degraded lewat jalur lain: paksa getAll gagal setelah siap.
+    check("Auth siap", FB5.isAuthReady() === true);
+    const user5 = await FB5.signIn("admin@uji.com", "sandi-benar");
+    check("signIn berhasil pada kondisi degraded", user5 && user5.email === "admin@uji.com");
+  }
+
+  console.log("\n=== Regresi: analytics gagal tidak menahan kesiapan ===");
+  {
+    // firebase.analytics() melempar error. Dulu state.ok ditulis SETELAH
+    // analytics, sehingga init() tidak pernah menandai siap.
+    const mock6 = createMockFirebase({ analyticsError: true });
+    const win6 = await runAdapter(mock6, { enableAnalytics: true });
+    const FB6 = win6.FirebaseStore;
+
+    check("state.ok true walau analytics error", FB6.isReady() === true, FB6.reason());
+    check("mode = firebase", FB6.mode() === "firebase");
+    check("alasan tidak diisi gara-gara analytics", String(FB6.reason()) === "", FB6.reason());
+    check("getAll tetap jalan", (await FB6.getAll()).length === 0);
   }
 
   console.log(`\n${"-".repeat(52)}`);

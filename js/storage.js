@@ -290,13 +290,54 @@ function firebaseReady(timeoutMs = FIREBASE_TIMEOUT_MS) {
   ]);
 }
 
-/** Ambil FirebaseStore hanya kalau benar-benar siap dipakai. */
+/** Ambil FirebaseStore hanya kalau benar-benar siap dipakai (untuk DATA). */
 function fb() {
   const store = typeof window !== "undefined" ? window.FirebaseStore : null;
   if (!store || !store.isReady || !store.isReady()) return null;
   // Sudah pernah gagal → jangan coba lagi di halaman ini.
   if (typeof store.isDegraded === "function" && store.isDegraded()) return null;
   return store;
+}
+
+/**
+ * Ambil FirebaseStore untuk urusan AUTH (login admin), tanpa syarat Firestore.
+ *
+ * Kenapa dipisah: login admin hanya butuh Firebase Auth. Kalau probe Firestore
+ * sempat timeout (state.degraded), fb() mengembalikan null — dulu itu membuat
+ * login admin mati total padahal Auth sehat. Auth dan Firestore adalah dua
+ * layanan berbeda; kegagalan salah satunya tidak boleh mematikan yang lain.
+ */
+function fbAuth() {
+  const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+  if (!store) return null;
+  const authReady =
+    typeof store.isAuthReady === "function" ? store.isAuthReady() : store.isReady();
+  return authReady ? store : null;
+}
+
+/**
+ * Tunggu Firebase AUTH siap (bukan Firestore).
+ *
+ * Login adalah tindakan sengaja yang dipicu klik, jadi wajar menunggu lebih
+ * lama daripada pemuatan daftar. Versi lama memakai firebaseReady() dengan
+ * batas 6 detik sementara adapter memberi izin probe Firestore 8 detik —
+ * akibatnya login menyerah lebih dulu padahal Firebase baru saja siap.
+ */
+async function firebaseAuthReady(timeoutMs = 20000) {
+  const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+  if (!store) return false;
+
+  // Sudah siap? langsung pakai.
+  if (typeof store.isAuthReady === "function" && store.isAuthReady()) return true;
+
+  if (typeof store.waitAuth === "function") {
+    return Promise.race([
+      store.waitAuth(timeoutMs).catch(() => false),
+      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs + 1000)),
+    ]);
+  }
+
+  return firebaseReady(timeoutMs);
 }
 
 /**
@@ -426,19 +467,25 @@ const Store = {
 
   /** Login admin: Firebase Auth kalau aktif, kalau tidak mode demo lokal. */
   async signInAdmin(email, password) {
-    await firebaseReady();
-    const remote = fb();
+    // Tunggu FIREBASE AUTH (bukan Firestore). Login hanya butuh Auth.
+    const authOk = await firebaseAuthReady();
+    const remote = authOk ? fbAuth() : null;
     if (remote) return remote.signIn(email, password);
 
-    // --- Mode demo (hanya saat Firebase tidak aktif) ---
+    // --- Mode demo (hanya saat Firebase benar-benar tidak tersedia) ---
     // PENTING: kata sandi demo ini HANYA boleh berlaku di komputer sendiri.
     // Kalau situs sudah online lalu Firebase gagal (jaringan buruk, kuota
     // habis, salah konfigurasi), tanpa batas ini siapa pun bisa masuk admin
     // dengan kata sandi demo. Jadi di domain publik login demo ditolak.
     if (!isLocalHost()) {
+      const store = typeof window !== "undefined" ? window.FirebaseStore : null;
+      const why =
+        store && typeof store.reason === "function" ? String(store.reason() || "") : "";
+
       throw new Error(
-        "Firebase tidak dapat dihubungi, jadi login admin dinonaktifkan. " +
-          "Periksa koneksi internet lalu muat ulang halaman."
+        "Tidak dapat terhubung ke Firebase, jadi login admin dinonaktifkan." +
+          (why ? ` Penyebab: ${why}` : " Periksa koneksi internet lalu coba lagi.") +
+          " Kalau tombol Masuk dengan Google tersedia, coba jalur itu."
       );
     }
 
@@ -459,15 +506,15 @@ const Store = {
   },
 
   async signOutAdmin() {
-    const remote = fb();
+    const remote = fbAuth() || fb();
     if (remote) await remote.signOut();
     LocalStore.setAdminSession(false);
   },
 
   /** Login admin dengan Google (hanya kalau Firebase aktif). */
   async signInAdminWithGoogle() {
-    await firebaseReady();
-    const remote = fb();
+    const authOk = await firebaseAuthReady();
+    const remote = authOk ? fbAuth() : null;
     if (!remote || typeof remote.signInWithGoogle !== "function") {
       throw new Error("Login Google hanya tersedia saat Firebase aktif.");
     }
@@ -476,20 +523,27 @@ const Store = {
 
   /** Apakah login Google bisa ditawarkan di halaman ini. */
   canUseGoogle() {
-    return Boolean(fb());
+    return Boolean(fbAuth() || fb());
   },
 
   /** Apakah ada admin yang sedang login. */
   isAdmin() {
-    const remote = fb();
+    // Jalur Auth dulu: sesi admin tidak boleh hilang gara-gara Firestore degraded.
+    const remote = fbAuth() || fb();
     if (remote) return Boolean(remote.currentUser());
     return LocalStore.isAdmin();
   },
 
-  /** Tunggu sampai status login diketahui (penting saat Firebase memulihkan sesi). */
-  async waitAdmin() {
-    await firebaseReady();
-    const remote = fb();
+  /**
+   * Tunggu sampai status login diketahui (penting saat Firebase memulihkan sesi).
+   *
+   * Batasnya lebih pendek daripada signInAdmin: di sini kita hanya memulihkan
+   * sesi lama, dan formulir login sudah tampil. Menunggu terlalu lama membuat
+   * halaman terasa menggantung.
+   */
+  async waitAdmin(timeoutMs = 8000) {
+    await firebaseAuthReady(timeoutMs);
+    const remote = fbAuth() || fb();
     if (remote && typeof remote.waitAdmin === "function") {
       await remote.waitAdmin();
     }
@@ -498,7 +552,7 @@ const Store = {
 
   /** Email admin yang login, atau null. */
   adminEmail() {
-    const remote = fb();
+    const remote = fbAuth() || fb();
     if (remote) {
       const user = remote.currentUser();
       return user ? user.email || "admin" : null;
@@ -514,9 +568,9 @@ const Store = {
     let unsubscribe = () => {};
     let stopped = false;
 
-    firebaseReady().then(() => {
+    firebaseAuthReady().then(() => {
       if (stopped) return;
-      const remote = fb();
+      const remote = fbAuth() || fb();
 
       if (remote && typeof remote.onAuth === "function") {
         callback(Boolean(remote.currentUser()), remote.currentUser()?.email || null);
@@ -574,6 +628,16 @@ const Store = {
   /** true kalau Firebase yang dipakai (bukan localStorage). */
   usingFirebase() {
     return Boolean(fb());
+  },
+
+  /**
+   * true kalau Firebase AUTH aktif (untuk form login admin).
+   *
+   * Dipisah dari usingFirebase(): saat Firestore bermasalah tetapi Auth sehat,
+   * form login tetap harus memperlakukan email sebagai wajib.
+   */
+  usingAuth() {
+    return Boolean(fbAuth() || fb());
   },
 
   /**

@@ -5,6 +5,22 @@ const path = require("path");
 
 const dir = process.env.TB_ROOT || path.resolve(__dirname, "..");
 
+/**
+ * Kata sandi demo dibaca dari js/firebase-config.js (hasil generate .env),
+ * BUKAN di-hardcode. Kalau FIREBASE_DEMO_PASSWORD diubah, tes ikut menyesuaikan.
+ */
+function readDemoPassword() {
+  try {
+    const src = fs.readFileSync(path.join(dir, "js/firebase-config.js"), "utf8");
+    const m = src.match(/demoPassword\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    return m ? m[1] : "";
+  } catch {
+    return "";
+  }
+}
+
+const DEMO_PASSWORD = readDemoPassword();
+
 /* --- Stub browser env --- */
 const store = new Map();
 const localStorage = {
@@ -137,6 +153,162 @@ vm.runInContext(fs.readFileSync(path.join(dir, "js/storage.js"), "utf8"), ctx);
   check("draft tersimpan", draft && draft.namaBarang === "Draft Uji");
   Store.clearDraft();
   check("draft terhapus", Store.loadDraft() === null);
+
+  /* ------------------------------------------------------------------ */
+  /* REGRESI: login admin tidak boleh mati saat Firestore bermasalah      */
+  /* ------------------------------------------------------------------ */
+  console.log("\n=== Regresi: signInAdmin lewat Auth, bukan Firestore ===");
+
+  const setLocation = (hostname) => {
+    sandbox.location = { hostname, protocol: "https:" };
+    vm.runInContext("", ctx);
+  };
+
+  // (1) Firestore TIDAK siap (degraded) tapi Auth siap → login harus jalan.
+  setLocation("temubalik-26f80.web.app");
+  sandbox.window.FirebaseStore = {
+    isReady: () => false,          // Firestore mati
+    isAuthReady: () => true,       // Auth sehat
+    isDegraded: () => true,        // sudah pernah gagal baca
+    reason: () => "Uji koneksi Firestore melebihi batas waktu 8000ms.",
+    waitAuth: async () => true,
+    currentUser: () => ({ email: "r9723419@gmail.com" }),
+    signIn: async (email) => ({ email }),
+    signInWithGoogle: async () => ({ email: "google@uji.com" }),
+    onAuth: () => () => {},
+    waitAdmin: async () => {},
+  };
+
+  let r1 = null, e1 = null;
+  try {
+    r1 = await Store.signInAdmin("r9723419@gmail.com", "apa-saja");
+  } catch (err) {
+    e1 = err;
+  }
+  check(
+    "login berhasil walau Firestore degraded",
+    r1 && r1.email === "r9723419@gmail.com",
+    e1 && e1.message
+  );
+  check("tidak melempar 'tidak dapat dihubungi'", !e1);
+  check("usingAuth() true", Store.usingAuth() === true);
+  check("isAdmin() membaca sesi Auth", Store.isAdmin() === true);
+  check("adminEmail() dari Auth", Store.adminEmail() === "r9723419@gmail.com");
+
+  // (2) Auth BELUM siap saat dipanggil, baru siap ~600ms kemudian.
+  //     Versi lama (batas 6 detik + fb() null) langsung menolak.
+  let authSiap = false;
+  sandbox.window.FirebaseStore = {
+    isReady: () => false,
+    isAuthReady: () => authSiap,
+    isDegraded: () => false,
+    reason: () => "",
+    waitAuth: (ms) =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          authSiap = true;
+          resolve(true);
+        }, 600);
+      }),
+    currentUser: () => ({ email: "r9723419@gmail.com" }),
+    signIn: async (email) => ({ email }),
+    onAuth: () => () => {},
+    waitAdmin: async () => {},
+  };
+
+  let r2 = null, e2 = null;
+  try {
+    r2 = await Store.signInAdmin("r9723419@gmail.com", "apa-saja");
+  } catch (err) {
+    e2 = err;
+  }
+  check("login menunggu Auth siap (bukan menyerah cepat)", r2 !== null, e2 && e2.message);
+  check("pesan 'tidak dapat dihubungi' tidak muncul saat cuma lambat", !e2);
+
+  /* ------------------------------------------------------------------ */
+  /* REGRESI: fail-closed tetap terjaga (jangan sampai celah terbuka)     */
+  /* ------------------------------------------------------------------ */
+  console.log("\n=== Fail-closed: sandi demo tetap hanya untuk localhost ===");
+
+  // (3) Domain publik + Firebase mati total → wajib MENOLAK.
+  //     Pakai sandi demo yang BENAR (dibaca dari config) supaya tes ini
+  //     membuktikan penolakan datang dari guard host, bukan dari sandi salah.
+  setLocation("temubalik-26f80.web.app");
+  delete sandbox.window.FirebaseStore;
+
+  let e3 = null;
+  try {
+    await Store.signInAdmin("admin@uji.com", DEMO_PASSWORD || "apa-saja");
+  } catch (err) {
+    e3 = err;
+  }
+  check("domain publik + Firebase mati → ditolak", e3 !== null, "seharusnya melempar");
+  check(
+    "pesan menyebut tidak dapat terhubung",
+    e3 && /tidak dapat terhubung|tidak dapat dihubungi/i.test(e3.message),
+    e3 && e3.message
+  );
+
+  // (4) Domain publik + Auth tidak pernah siap → sandi demo BENAR pun ditolak.
+  sandbox.window.FirebaseStore = {
+    isReady: () => false,
+    isAuthReady: () => false,
+    isDegraded: () => false,
+    reason: () => "Firebase Auth tidak dapat dihubungi.",
+    waitAuth: async () => false,
+    currentUser: () => null,
+    signIn: async () => {
+      throw new Error("Firebase Auth tidak dapat dihubungi.");
+    },
+    onAuth: () => () => {},
+    waitAdmin: async () => {},
+  };
+
+  let e4 = null;
+  try {
+    await Store.signInAdmin("admin@uji.com", DEMO_PASSWORD || "apa-saja");
+  } catch (err) {
+    e4 = err;
+  }
+  check("domain publik + Auth gagal → sandi demo ditolak", e4 !== null);
+
+  // (5) localhost tanpa Firebase → sandi demo (dari .env) tetap berlaku.
+  setLocation("localhost");
+  sandbox.window.TEMUBALIK_FIREBASE = { demoPassword: "sandi-demo-uji" };
+  delete sandbox.window.FirebaseStore;
+
+  let r5 = null, e5 = null;
+  try {
+    r5 = await Store.signInAdmin("", "sandi-demo-uji");
+  } catch (err) {
+    e5 = err;
+  }
+  check("localhost: sandi demo benar diterima", r5 && r5.email === "demo@local", e5 && e5.message);
+
+  // (6) localhost + sandi demo SALAH → tetap ditolak.
+  let e6 = null;
+  try {
+    await Store.signInAdmin("", "sandi-keliru");
+  } catch (err) {
+    e6 = err;
+  }
+  check("localhost: sandi demo salah ditolak", e6 !== null);
+
+  // (7) sandi demo kosong di .env → login demo mati (fail-closed).
+  //     Kirim sandi demo yang benar (kalau ada) — tetap harus ditolak.
+  sandbox.window.TEMUBALIK_FIREBASE = { demoPassword: "" };
+  let e7 = null;
+  try {
+    await Store.signInAdmin("", DEMO_PASSWORD || "apa-saja");
+  } catch (err) {
+    e7 = err;
+  }
+  check("demoPassword kosong → login demo mati", e7 !== null);
+
+  // (8) pulihkan keadaan supaya tidak mengganggu bagian berikutnya
+  setLocation("localhost");
+  sandbox.window.TEMUBALIK_FIREBASE = {};
+  Store.signOutAdmin();
 
   console.log("\n=== utils ===");
   check("formatTanggal", formatTanggal("2026-02-14") === "14 Februari 2026", formatTanggal("2026-02-14"));
