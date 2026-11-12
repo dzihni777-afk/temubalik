@@ -127,37 +127,43 @@ Nama pastinya bisa dilihat di
 
 ---
 
-## Langkah 3 — Aktifkan login Email/Password 🔴 WAJIB untuk admin
+## Langkah 3 — Login admin ✅ SUDAH AKTIF
 
-1. Buka <https://console.firebase.google.com/project/temubalik-26f80/authentication/providers>
-2. Klik **Get started** (kalau baru pertama kali)
-3. Pada daftar provider, pilih **Email/Password**
-4. Aktifkan **Enable**, lalu **Save**
-5. Pindah ke tab **Users** → **Add user**
-6. Isi email & kata sandi admin:
-   - Email: `r9723419@gmail.com`
-   - Password: (pilih sandi kuat, minimal 6 karakter)
+**Tidak perlu dikerjakan lagi.** Status per 12 Nov 2026:
 
-Akun inilah yang dipakai untuk masuk ke `admin.html`. Kalau lebih suka tanpa
-kata sandi, lewati langkah ini dan pakai tombol **Masuk dengan Google**
-dengan akun Google yang sama.
+| Hal | Status |
+| --- | --- |
+| Provider Email/Password | ✅ aktif |
+| Provider Google | ✅ aktif |
+| Akun admin | ✅ ada — `r9723419@gmail.com` |
+| UID | `VHG3YKblzHQzqK0LCVpaKpAbquL2` |
+| Kata sandi | ✅ sudah diatur (lihat `ADMIN_PASSWORD` di `.env`) |
+| Sudah diuji login | ✅ berhasil, panel admin terbuka |
+
+Kalau perlu mengganti kata sandi:
+<https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
+→ pilih user → **Reset password**.
+
+Untuk menambah admin lain: buat akunnya di tab **Users**, lalu tambahkan UID
+atau emailnya ke `isAdmin()` di `firestore.rules`, kemudian publish ulang.
 
 ---
 
-## Langkah 4 — Pasang Security Rules 🔴 WAJIB
+## Langkah 4 — Pasang Security Rules ✅ SUDAH DIPUBLISH
 
-Tanpa langkah ini, Firestore menolak semua akses (default production mode).
+Rules sudah aktif di server. Kalau nanti diubah, publish ulang:
 
-1. Buka <https://console.firebase.google.com/project/temubalik-26f80/firestore/rules>
-2. Buka file `firestore.rules` di proyek ini
-3. Pastikan daftar admin berisi email Anda:
-
-```
-"r9723419@gmail.com"
+```bash
+firebase deploy --only firestore:rules
 ```
 
-4. Salin **seluruh** isi `firestore.rules` ke editor di Console
-5. Klik **Publish**
+Daftar admin dikenali lewat tiga jalur:
+
+```
+request.auth.token.admin == true                       // custom claim
+request.auth.uid   in [ "VHG3YKblzHQzqK0LCVpaKpAbquL2" ]  // UID (utama)
+request.auth.token.email in [ "r9723419@gmail.com" ]      // email (cadangan)
+```
 
 Ringkasan izin yang diberikan:
 
@@ -169,9 +175,10 @@ Ringkasan izin yang diberikan:
 | Menghapus laporan | Hanya admin |
 | Field selain `status` diubah | Tidak ada (ditolak) |
 
-> **Cara alternatif (custom claim):** kalau tidak ingin menaruh email di rules,
-> pasang custom claim `admin: true` pada akun lewat Admin SDK, lalu hapus daftar
-> email dari rules. Rules sudah mendukung keduanya.
+> **Kenapa UID dipakai sebagai jalur utama?** UID tidak bisa diubah dan tidak
+> bergantung pada status verifikasi email. Email tetap didaftarkan sebagai
+> cadangan supaya akses tidak hilang kalau akun dibuat ulang.
+
 
 ---
 

@@ -51,50 +51,56 @@ menulis dan membaca dari Firestore.
 
 ## Langkah yang masih perlu Anda lakukan
 
-### 1. Email admin di Security Rules ✅ SUDAH DIISI
+### 1. Security Rules ✅ SUDAH DIPUBLISH
 
-Daftar admin di `firestore.rules` sekarang berisi email asli:
+Rules sudah aktif di server. Isinya mendaftarkan admin lewat **UID** dan
+**email**:
 
 ```
-"r9723419@gmail.com"
+request.auth.uid in [ "VHG3YKblzHQzqK0LCVpaKpAbquL2" ]
+request.auth.token.email in [ "r9723419@gmail.com" ]
 ```
 
-Yang masih perlu: **publish rules** supaya berlaku di server.
+Diverifikasi langsung ke Firestore produksi: ubah status & hapus laporan
+sebagai admin → **200**, tanpa login → **403**.
 
-1. Buka <https://console.firebase.google.com/project/temubalik-26f80/firestore/rules>
-2. Salin seluruh isi `firestore.rules` ke editor
-3. Klik **Publish**
-
-Atau lewat CLI:
+Kalau nanti mengubah `firestore.rules`, publish ulang dengan:
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-Setelah itu, pastikan akun `r9723419@gmail.com` sudah dibuat di Firebase
-Authentication (lihat `README-firebase.md` langkah 3).
+### 2. Akun admin ✅ SUDAH SIAP
 
-### 2. Buat akun admin
+Akun admin **sudah dibuat dan sudah diuji bisa login** (12 Nov 2026).
 
-**Opsi A — Email & kata sandi**
+| Field | Nilai |
+| --- | --- |
+| URL login | <https://temubalik-26f80.web.app/admin> |
+| Email | `r9723419@gmail.com` |
+| Kata sandi | lihat `ADMIN_PASSWORD` di file `.env` (tidak di-commit) |
+| UID | `VHG3YKblzHQzqK0LCVpaKpAbquL2` |
 
-1. <https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
-2. **Add user** → email `r9723419@gmail.com`, isi kata sandi (min. 6 karakter)
-3. Email harus sama dengan yang ada di `firestore.rules`
+**Dua cara masuk, keduanya berfungsi:**
 
-**Opsi B — Google**
+1. **Email + kata sandi** — isi email & sandi di form, klik **Masuk**.
+2. **Masuk dengan Google** — klik tombolnya, pilih akun `r9723419@gmail.com`.
+   Tidak perlu sandi. Email ini sudah terdaftar di `firestore.rules`.
 
-Tidak perlu membuat akun. Cukup login dengan Google memakai
-`r9723419@gmail.com` di `/admin.html`. Email itu sudah terdaftar di
-`firestore.rules`, jadi langsung dikenali sebagai admin.
+Kalau lupa kata sandi: buka
+<https://console.firebase.google.com/project/temubalik-26f80/authentication/users>,
+pilih user tersebut, lalu **Reset password**.
 
 ### 3. Daftarkan domain untuk login Google
 
-Biasanya `.web.app` sudah otomatis terdaftar. Pastikan di
-<https://console.firebase.google.com/project/temubalik-26f80/authentication/settings>
-→ **Authorized domains** ada `temubalik-26f80.web.app`.
+Domain `temubalik-26f80.web.app` dan `temubalik-26f80.firebaseapp.com`
+**sudah terdaftar** sebagai authorized domain. Tidak perlu diubah.
 
-Kalau tidak ada, login Google akan gagal dengan `auth/unauthorized-domain`.
+Kalau nanti memakai domain sendiri, tambahkan di
+<https://console.firebase.google.com/project/temubalik-26f80/authentication/settings>
+→ **Authorized domains**, kalau tidak login Google akan gagal dengan
+`auth/unauthorized-domain`.
+
 
 ### 4. Rotasi service account 🔴 PENTING
 

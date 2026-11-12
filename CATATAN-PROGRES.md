@@ -36,7 +36,8 @@
 | Foto > 700 KB | ✅ ditolak rules | 403 |
 | Foto normal | ✅ diterima | 200 |
 | Login Google (tombol) | ✅ tampil & provider aktif | screenshot + `createAuthUri` |
-| Login admin (email) | ⚠️ akun ada, sandi belum diatur | §3.4 |
+| Login admin (email) | ✅ berhasil | form terisi → panel admin terbuka |
+| Login admin (Google) | ✅ tombol tampil, provider aktif | `createAuthUri` → authUri |
 
 **Akun admin:** UID `VHG3YKblzHQzqK0LCVpaKpAbquL2`, email
 `r9723419@gmail.com`.
@@ -147,10 +148,10 @@ Diurutkan dari yang paling penting. Tanda: 🔴 wajib · ⚠️ sebaiknya · ℹ
 | # | Hal | Kenapa penting |
 | --- | --- | --- |
 | §3.3 | Service account bocor | Kunci akses penuh belum dicabut |
-| §3.4 | Kata sandi akun admin | Akun ada, tapi sandinya belum diatur |
+| §3.6 | Belum ada rate limit / App Check | Siapa pun bisa membanjiri laporan |
 
 Sudah beres: §3.1 (email admin di rules), §3.2 (rules dipublish),
-§3.8 (data contoh hilang setelah sync).
+§3.4 (akun admin bisa login), §3.8 (data contoh hilang setelah sync).
 
 ### 3.1 ✅ Email admin di rules sudah diisi & dipublish
 
@@ -189,7 +190,7 @@ Kunci `firebase-adminsdk-fbsvc@temubalik-26f80.iam.gserviceaccount.com`
 <https://console.firebase.google.com/project/temubalik-26f80/settings/serviceaccounts/adminsdk>
 lalu buat baru bila perlu.
 
-### 3.4 ⚠️ Akun admin sudah ada, kata sandinya belum diatur
+### 3.4 ✅ Akun admin siap dipakai
 
 **Koreksi catatan lama:** akun admin **sudah ada**. Isinya:
 
@@ -198,19 +199,33 @@ lalu buat baru bila perlu.
 | UID | `VHG3YKblzHQzqK0LCVpaKpAbquL2` |
 | Email | `r9723419@gmail.com` |
 | Provider | email/password |
+| Email terverifikasi | ✅ ya |
+| Kata sandi | ✅ sudah diatur |
 | Status | aktif (tidak disabled) |
 
 Jadi **bukan** `dzihni777@gmail.com` seperti yang sempat ditulis di
 dokumentasi. Semua dokumen sudah dikoreksi.
 
-**Yang masih kurang:** kata sandi akun ini belum diketahui/diatur. Login
-Google sudah aktif, jadi opsi termudah adalah menekan **Masuk dengan Google**
-di `/admin` memakai akun Google `r9723419@gmail.com`.
+**Sudah diuji 12 Nov 2026:**
 
-Kalau ingin memakai kata sandi, buka link atur-ulang yang sudah dibuat:
+1. `accounts:signInWithPassword` → **HTTP 200**, token berisi UID yang benar.
+2. Token itu dipakai mengubah status laporan → **200**, menghapus → **200**.
+3. Uji alur UI di browser sungguhan (Firefox): form diisi, tombol **Masuk**
+   ditekan, panel admin **terbuka** (bukan pesan error).
 
+Kata sandi disimpan di `.env` (`ADMIN_PASSWORD`), file yang di-ignore git.
+Bisa juga masuk lewat tombol **Masuk dengan Google** tanpa kata sandi.
+
+> ⚠️ **Kata sandi ini sudah pernah tampil di chat.** Anggap sudah setengah
+> bocor. Sebaiknya ganti setelah Anda sempat login pertama kali:
+> <https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
+> → pilih user → **Reset password**. Setelah diganti, perbarui juga
+> `ADMIN_PASSWORD` di `.env` (atau hapus barisnya kalau tidak dipakai lagi).
+
+**Cara mengganti kata sandi:**
 <https://console.firebase.google.com/project/temubalik-26f80/authentication/users>
-→ pilih user → **Reset password**, atau pakai link yang saya berikan di chat.
+→ pilih user → **Reset password**.
+
 
 ### 3.4b ✅ Login Google sudah aktif
 
@@ -342,9 +357,9 @@ Bukti (12 Nov 2026):
 **Yang perlu diketahui:** tombol muncul **setelah** Firebase selesai
 inisialisasi (bisa 1–3 detik pada koneksi lambat). Ini perilaku normal, bukan bug.
 
-**Sisa pekerjaan:** belum ada akun admin di Firebase Authentication, jadi
-tombol itu belum bisa dipakai sampai akun dibuat (§3.4) dan emailnya
-didaftarkan di rules (§3.1).
+**Sudah bisa dipakai.** Akun `r9723419@gmail.com` ada di Firebase Auth dan
+emailnya terdaftar di rules, jadi tombol **Masuk dengan Google** langsung
+dikenali sebagai admin (§3.4).
 
 ---
 
@@ -451,6 +466,30 @@ Catatan tambahan: deploy rules bisa melaporkan
 Cek `GET /releases/cloud.firestore/default` untuk memastikan `rulesetName`
 menunjuk ruleset terbaru.
 
+### 4.8 ⚠️ Jangan simpan sandi admin Firebase di `ADMIN_PASSWORD`
+
+**Kesalahan yang saya buat 12 Nov 2026.** Saya menambahkan ke `.env`:
+
+```
+ADMIN_PASSWORD=TemuBalik2026!kuat
+```
+
+Maksudnya menyimpan sandi akun admin Firebase. Ternyata `server/auth.js`
+baris 72 **membaca `ADMIN_PASSWORD` sebagai kata sandi panel backend**.
+Akibatnya sandi backend ikut berubah dan **25 dari 101 tes API gagal**
+(`percobaan gagal ke-5 masih 401 — dapat 429`, `logout → 200` gagal, dst).
+
+Bukan bug kode — murni salah saya memilih nama variabel. Diperbaiki dengan
+mengganti nama menjadi `FIREBASE_ADMIN_PASSWORD` (tidak dibaca kode mana pun),
+dan peringatan ditambahkan di `.env.example`.
+
+**Pelajaran:** sebelum menambah variabel ke `.env`, cek dulu apakah nama itu
+sudah dipakai kode:
+
+```bash
+grep -rhoE "process\.env\.[A-Z_]+" server/*.js scripts/*.js | sort -u
+```
+
 
 ---
 
@@ -460,7 +499,8 @@ menunjuk ruleset terbaru.
 
 1. **Rotasi service account** yang bocor (§3.3). Kunci ini masih berfungsi
    dan memberi akses penuh ke project.
-2. **Atur kata sandi akun admin** atau pakai **Masuk dengan Google** (§3.4).
+2. **Ganti kata sandi admin** kalau perlu — sandi awal tercatat di `.env`
+   dan sudah pernah tampil di chat, jadi sebaiknya dirotasi (§3.4).
 3. **Putuskan kebijakan privasi**: `allow read: if true` membuat `whatsapp`
    dan `namaPelapor` terbaca publik lewat API tanpa login.
 
@@ -601,4 +641,5 @@ manual lebih dulu membuat kesalahan konfigurasi cepat terlihat.
 | 12 Nov 2026 | **Koreksi besar:** akun admin sebenarnya `r9723419@gmail.com`, bukan `dzihni777@gmail.com`. Semua dokumen disamakan (§4.5) |
 | 12 Nov 2026 | Verifikasi login Google aktif via `defaultSupportedIdpConfigs` (§4.6) |
 | 12 Nov 2026 | **Perbaiki bug data contoh hilang** — `getAllProgressive` kini menggabung, bukan mengganti; tambah label CONTOH (§3.8) |
+| 12 Nov 2026 | **Atur kata sandi akun admin & uji login lewat UI** — berhasil masuk panel admin (§3.4) |
 
