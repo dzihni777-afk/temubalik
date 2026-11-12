@@ -482,10 +482,18 @@ const Store = {
       const why =
         store && typeof store.reason === "function" ? String(store.reason() || "") : "";
 
+      // Kalau masalahnya konfigurasi, JANGAN sarankan Google — jalur itu butuh
+      // konfigurasi yang sama, jadi sarannya menyesatkan.
+      const masalahConfig = /firebase-config\.js|Konfigurasi Firebase|FIREBASE_|npm run config/i.test(
+        why
+      );
+
       throw new Error(
         "Tidak dapat terhubung ke Firebase, jadi login admin dinonaktifkan." +
           (why ? ` Penyebab: ${why}` : " Periksa koneksi internet lalu coba lagi.") +
-          " Kalau tombol Masuk dengan Google tersedia, coba jalur itu."
+          (masalahConfig
+            ? ""
+            : " Kalau tombol Masuk dengan Google tersedia, coba jalur itu.")
       );
     }
 

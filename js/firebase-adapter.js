@@ -208,8 +208,31 @@
       return false;
     }
 
+    // Konfigurasi bermasalah. Dua sebab yang sangat berbeda, jangan disamakan —
+    // keduanya dulu hanya berbunyi "Konfigurasi Firebase kosong." sehingga
+    // orang tidak tahu apa yang harus dilakukan.
+    //
+    // Catatan: CFG = global.TEMUBALIK_FIREBASE || {}, jadi kita perlu melihat
+    // global aslinya untuk membedakan "file tidak ada" dari "file ada tapi kosong".
+    const adaConfigFile = Boolean(global.TEMUBALIK_FIREBASE);
+
+    if (!adaConfigFile) {
+      // js/firebase-config.js tidak ada atau gagal dimuat sama sekali.
+      // Penyebab tersering: repo baru di-clone, dan file itu memang tidak
+      // di-commit (dihasilkan dari .env).
+      state.reason =
+        "File js/firebase-config.js tidak ditemukan. Jalankan " +
+        '"cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config".';
+      return false;
+    }
+
     if (!CFG.config || !CFG.config.projectId) {
-      state.reason = "Konfigurasi Firebase kosong.";
+      const wajib = ["apiKey", "authDomain", "projectId", "appId"];
+      const kosong = CFG.config ? wajib.filter((k) => !CFG.config[k]) : wajib;
+      state.reason =
+        "Konfigurasi Firebase tidak lengkap" +
+        (kosong.length ? ` (${kosong.join(", ")} kosong)` : "") +
+        '. Isi variabel FIREBASE_* di .env lalu jalankan "npm run config".';
       return false;
     }
 

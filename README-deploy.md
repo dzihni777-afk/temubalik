@@ -9,6 +9,68 @@ https://temubalik-26f80.firebaseapp.com
 
 ---
 
+## 🟢 Pertama kali clone repo ini
+
+`js/firebase-config.js` **tidak di-commit** (isinya dihasilkan dari `.env`,
+yang berisi konfigurasi project Firebase). Jadi setelah `git clone`, file itu
+**belum ada** dan situs akan menampilkan:
+
+> Konfigurasi Firebase kosong
+
+Situs **tidak blank** — otomatis memakai `localStorage`. Tapi login admin mati
+sampai langkah berikut dijalankan:
+
+```bash
+# 1. Salin contoh env (sekali saja)
+cp .env.example .env
+
+# 2. Isi variabel FIREBASE_* di .env
+#    Ambil nilainya dari Firebase Console → Project settings → Your apps
+#    → konfigurasi SDK Firebase.
+#    Wajib: FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
+#           FIREBASE_STORAGE_BUCKET, FIREBASE_MESSAGING_SENDER_ID,
+#           FIREBASE_APP_ID
+#    Opsional: FIREBASE_DATABASE_ID (pakai "default"), FIREBASE_DEMO_PASSWORD,
+#              FIREBASE_COLLECTION, FIREBASE_MEASUREMENT_ID
+
+# 3. Hasilkan js/firebase-config.js
+npm run config
+
+# 4. Jalankan
+npm start
+```
+
+`npm start` menjalankan `npm run config` otomatis lewat `prestart`, jadi
+langkah 3 sebenarnya sudah tercakup. Menjalankannya manual lebih dulu membuat
+kesalahan konfigurasi cepat terlihat.
+
+**Kalau ada masalah:**
+
+| Gejala | Penyebab | Solusi |
+| --- | --- | --- |
+| `File js/firebase-config.js tidak ditemukan` | Repo baru di-clone, file tidak di-commit | `cp .env.example .env` → isi `FIREBASE_*` → `npm run config` |
+| `Konfigurasi Firebase tidak lengkap (projectId kosong)` | `.env` ada tapi belum diisi | isi variabel yang disebut, lalu `npm run config` |
+| `File .env tidak ditemukan` | `.env` belum disalin | `cp .env.example .env` |
+| `Variabel berikut belum diisi di .env: ...` | `.env` belum lengkap | isi variabel yang disebut, lalu `npm run config` |
+| `database (default) does not exist` | `databaseId` tidak sesuai | lihat bagian di bawah |
+
+Cek cepat dari terminal:
+
+```bash
+node -e "const s=require('fs').readFileSync('js/firebase-config.js','utf8');
+const m=s.match(/projectId: \"([^\"]*)\"/); console.log('projectId =', m?m[1]:'(tidak ada)')"
+```
+
+Di Console browser (saat membuka `/admin`):
+
+```js
+FirebaseStore.isReady()      // Firestore siap?
+FirebaseStore.isAuthReady()  // Auth siap (untuk login)?
+FirebaseStore.reason()       // alasan kalau gagal
+```
+
+---
+
 ## Ringkasan yang sudah dikerjakan
 
 | Komponen | Status | Keterangan |

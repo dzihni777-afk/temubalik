@@ -273,6 +273,23 @@ async function runAdapter(mock, configOverrides = {}) {
   return win;
 }
 
+/**
+ * Seperti runAdapter(), tapi window.TEMUBALIK_FIREBASE TIDAK diset sama sekali.
+ * Meniru repo baru di-clone: js/firebase-config.js tidak ada (404).
+ */
+async function runAdapterTanpaConfig(mock) {
+  const win = makeWindow(mock);
+  const sandbox = vm.createContext(win);
+
+  // SENGAJA tidak menyetel win.TEMUBALIK_FIREBASE.
+
+  const code = fs.readFileSync(path.join(ROOT, "js/firebase-adapter.js"), "utf8");
+  vm.runInContext(code, sandbox);
+
+  await win.FirebaseStore.ready();
+  return win;
+}
+
 /* -------------------------------------------------------------------------
    Uji
    ------------------------------------------------------------------------- */
@@ -429,6 +446,41 @@ async function runAdapter(mock, configOverrides = {}) {
     const win3 = await runAdapter(mock3, { config: {} });
     check("tidak aktif tanpa config", win3.FirebaseStore.isReady() === false);
     check("alasan dijelaskan", /konfigurasi/i.test(win3.FirebaseStore.reason()), win3.FirebaseStore.reason());
+    check(
+      "alasan menyebut npm run config",
+      /npm run config/i.test(win3.FirebaseStore.reason()),
+      win3.FirebaseStore.reason()
+    );
+    check(
+      "alasan menyebut variabel yang kosong",
+      /projectId/i.test(win3.FirebaseStore.reason()),
+      win3.FirebaseStore.reason()
+    );
+  }
+
+  console.log("\n=== Adapter saat js/firebase-config.js TIDAK ADA ===");
+  {
+    // Meniru repo baru di-clone: file config memang tidak di-commit.
+    const mock4 = createMockFirebase();
+    const win4 = await runAdapterTanpaConfig(mock4);
+    const FB4 = win4.FirebaseStore;
+
+    check("tidak aktif tanpa file config", FB4.isReady() === false);
+    check(
+      "alasan menyebut nama file yang hilang",
+      /firebase-config\.js/i.test(FB4.reason()),
+      FB4.reason()
+    );
+    check(
+      "alasan memberi perintah cp .env.example",
+      /cp \.env\.example \.env/.test(FB4.reason()),
+      FB4.reason()
+    );
+    check("alasan memberi perintah npm run config", /npm run config/i.test(FB4.reason()), FB4.reason());
+    check("Auth juga tidak siap", FB4.isAuthReady() === false);
+
+    // Situs tetap hidup: fallback ke localStorage, bukan blank.
+    check("mode = local", FB4.mode() === "local");
   }
 
   /* ------------------------------------------------------------------ */

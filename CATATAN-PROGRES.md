@@ -16,7 +16,7 @@
 | Security Rules | ✅ terpublish & aktif (UID + email admin terdaftar) |
 | Hosting online | ✅ live, kode lokal = live (hash identik) |
 | Data sensitif ke `.env` | ✅ selesai & live |
-| Uji otomatis | ✅ 323 pemeriksaan lulus |
+| Uji otomatis | ✅ 337 pemeriksaan lulus |
 | Commit | ✅ semua ter-commit & ter-push |
 
 **Alamat situs:** <https://temubalik-26f80.web.app>
@@ -156,15 +156,15 @@ ditolak total; tanpa `FIREBASE_DEMO_PASSWORD`, login demo frontend ditolak.
 
 ```
 api                 101 lulus, 0 gagal
-storage              43 lulus, 0 gagal   (+13 tes regresi login)
+storage              46 lulus, 0 gagal   (+16 tes regresi login & config)
 form                 29 lulus, 0 gagal
 dom                  46 lulus, 0 gagal
-firebase-mock        52 lulus, 0 gagal   (+14 tes regresi login)
+firebase-mock        60 lulus, 0 gagal   (+22 tes regresi login & config)
 firebase-integration 19 lulus, 0 gagal
 firebase-offline     33 lulus, 0 gagal   (file: tests/firebase.test.cjs)
 ```
 
-**Total: 323 pemeriksaan, 0 gagal.**
+**Total: 334 pemeriksaan, 0 gagal.**
 
 Tes regresi baru untuk Bug 5 (§2.2):
 
@@ -179,6 +179,9 @@ Tes regresi baru untuk Bug 5 (§2.2):
 | `localhost` + sandi demo benar → diterima | ✅ |
 | `localhost` + sandi demo salah → ditolak | ✅ |
 | `FIREBASE_DEMO_PASSWORD` kosong → login demo mati | ✅ |
+| Config tidak ada → pesan menyebut `cp .env.example .env` + `npm run config` | ✅ |
+| Config tidak ada di domain publik → tetap **ditolak** (fail-closed) | ✅ |
+| Pesan config **tidak** menyarankan Google (saran itu salah) | ✅ |
 
 Uji login di browser sungguhan (Firefox headless):
 
@@ -589,6 +592,44 @@ FirebaseStore.reason()       // alasan kalau Firestore gagal
 
 Kalau `isReady()===false` tapi `isAuthReady()===true`, login **tetap harus bisa**.
 Itu perilaku yang benar sekarang.
+
+### 4.10 ⚠️ `js/firebase-config.js` tidak di-commit — clone baru wajib `npm run config`
+
+**Penyebab pesan "Konfigurasi Firebase kosong".** File
+`js/firebase-config.js` **sengaja tidak masuk repo** (`.gitignore` baris 27)
+karena isinya dihasilkan dari `.env`. Konsekuensinya: **setiap mesin, clone,
+atau CI baru tidak punya file itu** dan Firebase langsung mati.
+
+Rantai kegagalannya senyap dan mudah salah didiagnosis:
+
+1. `js/firebase-config.js` tidak ada → Hosting mengembalikan **404 berisi HTML**
+   (bukan 404 kosong)
+2. `X-Content-Type-Options: nosniff` aktif → browser **menolak** HTML itu
+   sebagai skrip, tanpa error yang terlihat jelas
+3. `window.TEMUBALIK_FIREBASE` tidak pernah dibuat
+4. `const CFG = global.TEMUBALIK_FIREBASE || {}` → `{}`
+5. `init()` berhenti → situs memakai `localStorage`, login admin mati
+
+**Yang sudah diperbaiki:** pesannya sekarang **menyebut langkah persis**, bukan
+sekadar "kosong":
+
+| Kondisi | Pesan |
+| --- | --- |
+| File config tidak ada | `File js/firebase-config.js tidak ditemukan. Jalankan "cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config".` |
+| File ada tapi kosong | `Konfigurasi Firebase tidak lengkap (projectId kosong). Isi variabel FIREBASE_* di .env lalu jalankan "npm run config".` |
+
+Dan di form login, saran **"coba Masuk dengan Google" dihapus** untuk kasus ini —
+jalur Google butuh konfigurasi yang sama, jadi sarannya menyesatkan.
+
+**Pelajaran:** kalau mengubah `.env`, **selalu** jalankan `npm run config` dan
+deploy ulang. `predeploy` sudah memanggilnya otomatis, tapi hanya kalau `.env`
+ada di mesin yang men-deploy.
+
+**Cek cepat setelah clone:**
+
+```bash
+ls js/firebase-config.js || echo "BELUM ADA → jalankan: cp .env.example .env && npm run config"
+```
 
 
 ---

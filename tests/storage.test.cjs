@@ -272,6 +272,41 @@ vm.runInContext(fs.readFileSync(path.join(dir, "js/storage.js"), "utf8"), ctx);
   }
   check("domain publik + Auth gagal → sandi demo ditolak", e4 !== null);
 
+  // (4b) Domain publik + config Firebase hilang → tolak DAN beri langkah
+  //      perbaikan, tanpa menyarankan Google (jalur itu butuh config sama).
+  sandbox.window.FirebaseStore = {
+    isReady: () => false,
+    isAuthReady: () => false,
+    isDegraded: () => false,
+    reason: () =>
+      "File js/firebase-config.js tidak ditemukan. Jalankan \"cp .env.example .env\", isi variabel FIREBASE_*, lalu \"npm run config\".",
+    waitAuth: async () => false,
+    currentUser: () => null,
+    signIn: async () => {
+      throw new Error("Firebase Auth tidak dapat dihubungi.");
+    },
+    onAuth: () => () => {},
+    waitAdmin: async () => {},
+  };
+
+  let e4b = null;
+  try {
+    await Store.signInAdmin("admin@uji.com", DEMO_PASSWORD || "apa-saja");
+  } catch (err) {
+    e4b = err;
+  }
+  check("config hilang di domain publik → ditolak", e4b !== null);
+  check(
+    "pesan menyebut langkah npm run config",
+    e4b && /npm run config/i.test(e4b.message),
+    e4b && e4b.message
+  );
+  check(
+    "pesan TIDAK menyarankan Google saat masalahnya config",
+    e4b && !/coba jalur itu|Google/i.test(e4b.message),
+    e4b && e4b.message
+  );
+
   // (5) localhost tanpa Firebase → sandi demo (dari .env) tetap berlaku.
   setLocation("localhost");
   sandbox.window.TEMUBALIK_FIREBASE = { demoPassword: "sandi-demo-uji" };

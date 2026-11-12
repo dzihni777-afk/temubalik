@@ -50,9 +50,28 @@
 
     if (mode === "firebase") return;
 
-    // Mode lokal. Bedakan dua sebab yang sangat berbeda:
-    //  (a) Auth juga mati  → memang mode demo lokal
+    // Mode lokal. Bedakan TIGA sebab yang sangat berbeda:
+    //  (a) konfigurasi belum diatur → tampilkan langkah perbaikan, jangan
+    //      menawarkan sandi demo (itu akan menyesatkan)
     //  (b) Auth hidup, hanya Firestore bermasalah → login tetap lewat Firebase
+    //  (c) Auth juga mati → memang mode demo lokal
+    const alasan = String(
+      (window.FirebaseStore && window.FirebaseStore.reason && window.FirebaseStore.reason()) || ""
+    );
+    const masalahConfig = /firebase-config\.js|Konfigurasi Firebase|FIREBASE_|npm run config/i.test(
+      alasan
+    );
+
+    if (masalahConfig) {
+      if (loginHint) {
+        loginHint.textContent =
+          "Konfigurasi Firebase belum diatur di server ini, jadi login admin " +
+          "belum bisa dipakai. Jalankan: cp .env.example .env → isi FIREBASE_* → npm run config.";
+      }
+      if (loginNote) loginNote.textContent = "";
+      return;
+    }
+
     if (Store.usingAuth()) {
       if (loginHint) {
         loginHint.textContent =
@@ -164,17 +183,31 @@
       const code = err && err.code ? String(err.code) : "";
       const message = String((err && err.message) || "");
 
-      // Tiga kondisi berbeda, jangan disamakan:
+      // Empat kondisi berbeda, jangan disamakan:
+      //  (0) konfigurasi belum diatur → beri langkah persis, bukan "coba lagi"
       //  (1) Firebase masih menyiapkan koneksi → minta tunggu, bukan salah sandi
       //  (2) Firebase benar-benar gagal → tampilkan alasan aslinya
       //  (3) kredensial salah / batasan lain → pesan spesifik
+      const masalahConfig =
+        /firebase-config\.js|Konfigurasi Firebase|FIREBASE_[A-Z_]+|npm run config/i.test(
+          message
+        );
       const masihMemuat = /memuat|menyiapkan|belum siap|timeout menunggu/i.test(message);
       const gagalKonek =
         /tidak dapat dihubungi|tidak dapat terhubung|network-request-failed/i.test(
           code + " " + message
         );
 
-      if (
+      if (masalahConfig) {
+        // JANGAN menyarankan "coba Masuk dengan Google" di sini: jalur Google
+        // butuh konfigurasi yang sama, jadi sarannya menyesatkan.
+        setError(
+          "password",
+          "Konfigurasi Firebase belum diatur di server ini. Jalankan " +
+            '"cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config". ' +
+            "Penjelasan: README-firebase.md Langkah 1."
+        );
+      } else if (
         code.includes("invalid-credential") ||
         code.includes("wrong-password") ||
         code.includes("user-not-found") ||
