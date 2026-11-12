@@ -7,6 +7,19 @@ const fs = require("fs");
 
 const CHROME = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe";
 const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
+
+/** Kata sandi demo dari js/firebase-config.js (hasil generate .env), bukan hardcode. */
+function readDemoPassword() {
+  try {
+    const src = fs.readFileSync(path.join(ROOT, "js", "firebase-config.js"), "utf8");
+    const m = src.match(/demoPassword\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    return m ? JSON.parse(`"${m[1]}"`) : "";
+  } catch {
+    return "";
+  }
+}
+
+const DEMO_PASSWORD = readDemoPassword();
 const profile = path.join(os.tmpdir(), "tb-int-" + Date.now());
 const port = 9337;
 
@@ -227,7 +240,7 @@ const get = (u) => new Promise((res, rej) => {
   /* -------------------------------------------------- */
   console.log("\n=== Admin: login, ubah status, hapus ===");
   await goto("admin.html", 2500);
-  await evalJs(`document.getElementById('password').value = 'admin123'`);
+  await evalJs(`document.getElementById('password').value = ${JSON.stringify(DEMO_PASSWORD)}`);
   await evalJs(`document.getElementById('loginForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))`);
   await new Promise((r) => setTimeout(r, 2500));
 

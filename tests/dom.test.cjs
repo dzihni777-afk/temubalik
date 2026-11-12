@@ -6,6 +6,23 @@ const path = require("path");
 const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
 const BASE = "http://localhost:8899/";
 
+/**
+ * Kata sandi demo dibaca dari js/firebase-config.js (hasil generate .env),
+ * BUKAN di-hardcode di tes. Kalau seseorang mengubah FIREBASE_DEMO_PASSWORD
+ * di .env, tes tetap ikut menyesuaikan dan tidak gagal palsu.
+ */
+function readDemoPassword() {
+  try {
+    const src = fs.readFileSync(path.join(ROOT, "js", "firebase-config.js"), "utf8");
+    const m = src.match(/demoPassword\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    return m ? JSON.parse(`"${m[1]}"`) : "";
+  } catch {
+    return "";
+  }
+}
+
+const DEMO_PASSWORD = readDemoPassword();
+
 let pass = 0, fail = 0;
 const check = (name, cond, extra = "") => {
   if (cond) { pass++; console.log(`  PASS  ${name}`); }
@@ -162,7 +179,7 @@ async function loadPage(page, { seedLocal = null, url = "" } = {}) {
     check("password salah ditolak", /salah/i.test(d.querySelector('[data-error-for="password"]').textContent));
 
     // login benar
-    pw.value = "admin123";
+    pw.value = DEMO_PASSWORD;
     d.getElementById("loginForm").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
     await new Promise((r) => setTimeout(r, 1400));
     check("panel terbuka setelah login", !d.getElementById("adminPanel").classList.contains("hidden"));

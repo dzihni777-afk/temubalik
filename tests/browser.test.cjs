@@ -5,6 +5,19 @@ const fs = require("fs");
 const os = require("os");
 
 const ROOT = process.env.TB_ROOT || path.resolve(__dirname, "..");
+
+/** Kata sandi demo dari js/firebase-config.js (hasil generate .env), bukan hardcode. */
+function readDemoPassword() {
+  try {
+    const src = fs.readFileSync(path.join(ROOT, "js", "firebase-config.js"), "utf8");
+    const m = src.match(/demoPassword\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    return m ? JSON.parse(`"${m[1]}"`) : "";
+  } catch {
+    return "";
+  }
+}
+
+const DEMO_PASSWORD = readDemoPassword();
 const CHROME = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe";
 
 let pass = 0, fail = 0;
@@ -112,7 +125,8 @@ console.log("\n=== file:// admin.html ===");
 {
   const html = dumpDom("admin.html", "", "adm");
   check("login gate tampil", /Masuk sebagai Admin/.test(html));
-  check("kata sandi demo ditampilkan", /admin123/.test(html));
+  check("kata sandi demo ditampilkan",
+    DEMO_PASSWORD !== "" && html.includes(DEMO_PASSWORD));
 }
 
 console.log(`\n===== HASIL BROWSER file://: ${pass} pass, ${fail} fail =====\n`);

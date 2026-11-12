@@ -15,6 +15,25 @@ const { JSDOM, VirtualConsole, ResourceLoader } = require("jsdom");
 
 const BASE = process.env.TB_BASE || "http://127.0.0.1:3200/";
 
+/**
+ * Kata sandi demo dibaca dari js/firebase-config.js (hasil generate .env),
+ * BUKAN di-hardcode. Kalau FIREBASE_DEMO_PASSWORD diubah, tes ikut menyesuaikan.
+ */
+function readDemoPassword() {
+  try {
+    const src = require("fs").readFileSync(
+      require("path").join(__dirname, "..", "js", "firebase-config.js"),
+      "utf8"
+    );
+    const m = src.match(/demoPassword\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    return m ? JSON.parse(`"${m[1]}"`) : "";
+  } catch {
+    return "";
+  }
+}
+
+const DEMO_PASSWORD = readDemoPassword();
+
 let pass = 0;
 let fail = 0;
 
@@ -179,7 +198,8 @@ async function loadPage(page, { url = "", seedLocal = null, blockFirebase = true
     check("field email tersedia", !!d.getElementById("email"));
     check("petunjuk mode lokal muncul", /mode demo lokal/i.test(d.getElementById("loginHint").textContent),
       d.getElementById("loginHint").textContent);
-    check("sandi demo ditampilkan", /admin123/.test(d.getElementById("loginNote").textContent));
+    check("sandi demo ditampilkan",
+      DEMO_PASSWORD !== "" && d.getElementById("loginNote").textContent.includes(DEMO_PASSWORD));
 
     // sandi salah
     d.getElementById("password").value = "salah";
@@ -189,7 +209,7 @@ async function loadPage(page, { url = "", seedLocal = null, blockFirebase = true
       d.querySelector('[data-error-for="password"]').textContent);
 
     // sandi benar
-    d.getElementById("password").value = "admin123";
+    d.getElementById("password").value = DEMO_PASSWORD;
     d.getElementById("loginForm").dispatchEvent(new w.Event("submit", { bubbles: true, cancelable: true }));
     await sleep(1600);
     check("panel terbuka", !d.getElementById("adminPanel").classList.contains("hidden"));

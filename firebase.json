@@ -4,13 +4,16 @@
   },
   "hosting": {
     "public": ".",
+    "predeploy": ["npm run config"],
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
       "tests/**",
       "server/**",
+      "scripts/**",
       "README*.md",
+      "CATATAN-PROGRES.md",
       "firestore.rules",
       "package.json",
       "package-lock.json",
