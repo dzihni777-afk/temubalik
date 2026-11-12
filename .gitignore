@@ -25,3 +25,6 @@ tb-sa.json
 # Tidak di-commit supaya repo tidak menunjuk ke project Firebase yang hidup.
 # Setiap orang membuatnya sendiri dari .env miliknya.
 js/firebase-config.js
+
+# Cache deploy Firebase Hosting (dibuat otomatis oleh `firebase deploy`).
+.firebase/

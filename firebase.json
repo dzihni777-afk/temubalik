@@ -7,6 +7,8 @@
     "predeploy": ["npm run config"],
     "ignore": [
       "firebase.json",
+      ".git/**",
+      ".firebase/**",
       "**/.*",
       "**/node_modules/**",
       "tests/**",
