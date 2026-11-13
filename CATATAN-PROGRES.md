@@ -4,7 +4,7 @@
 > Isinya: apa yang sudah selesai, apa yang masih kurang, dan apa yang salah.
 > Perbarui file ini setiap kali ada perubahan besar.
 >
-> Terakhir diperbarui: **12 November 2026**
+> Terakhir diperbarui: **13 November 2026**
 
 ---
 
@@ -16,7 +16,7 @@
 | Security Rules | ✅ terpublish & aktif (UID + email admin terdaftar) |
 | Hosting online | ✅ live, kode lokal = live (hash identik) |
 | Data sensitif ke `.env` | ✅ selesai & live |
-| Uji otomatis | ✅ 337 pemeriksaan lulus |
+| Uji otomatis | ✅ 376 pemeriksaan lulus (8 berkas tes) |
 | Commit | ✅ semua ter-commit & ter-push |
 
 **Alamat situs:** <https://temubalik-26f80.web.app>
@@ -38,6 +38,7 @@
 | Login Google (tombol) | ✅ tampil & provider aktif | screenshot + `createAuthUri` |
 | Login admin (email) | ✅ berhasil, termasuk saat Firestore mati | form terisi → panel admin terbuka |
 | Login admin (Google) | ✅ tombol tampil, provider aktif | `createAuthUri` → authUri |
+| Login admin lewat `npm start` | ✅ panel admin terbuka | uji Firefox headless, `loginGate hidden` |
 
 **Akun admin:** UID `VHG3YKblzHQzqK0LCVpaKpAbquL2`, email
 `r9723419@gmail.com`.
@@ -632,6 +633,140 @@ ls js/firebase-config.js || echo "BELUM ADA → jalankan: cp .env.example .env &
 ```
 
 
+### 4.11 ✅ `npm start` 404 untuk URL tanpa `.html` — SUDAH DIPERBAIKI
+
+Firebase Hosting memakai `cleanUrls: true`, jadi di live `/admin` **bekerja**.
+Tapi `server/server.js` hanya melayani nama berkas persis, sehingga di lokal:
+
+```
+/admin        → 404   ← beda dengan live
+/admin.html   → 200
+```
+
+Akibatnya alamat yang biasa dipakai (`/admin`) gagal di lokal, dan orang
+mengira situsnya rusak. Perilaku lokal dan live **tidak konsisten**.
+
+**Perbaikan:** `serveStatic()` sekarang mencoba `target + ".html"` kalau berkas
+tanpa ekstensi tidak ditemukan. `sendFile()` dipisah agar tidak menduplikasi
+kode pengiriman.
+
+Diuji dengan `PORT=3210 node server/server.js`:
+
+| URL | Sebelum | Sesudah |
+| --- | --- | --- |
+| `/admin` | 404 | **200** |
+| `/daftar` | 404 | **200** |
+| `/lapor` | 404 | **200** |
+| `/status` | 404 | **200** |
+| `/tentang` | 404 | **200** |
+| `/admin.html` | 200 | 200 |
+| `/server/auth.js` | 403 | 403 (tetap diblokir) |
+
+Regresi dijaga oleh 6 pemeriksaan baru di `tests/api.test.cjs`.
+
+
+### 4.12 ℹ️ Pesan error tidak menyebut URL yang sedang dibuka
+
+Pesan "Konfigurasi Firebase belum diatur di server ini" benar, tapi tidak
+membantu kalau orang tidak tahu **di mana** ia membuka halaman. Penyebab
+tersering: `admin.html` diklik dua kali sehingga address bar berawalan
+`file:///`, dan di sana `js/firebase-config.js` bisa gagal dimuat.
+
+**Perbaikan:** kalau `location.protocol === "file:"`, pesan kini **menyebut URL
+persis** dan memberi alamat pengganti:
+
+> File js/firebase-config.js tidak ditemukan. Jalankan "cp .env.example .env",
+> isi variabel FIREBASE_*, lalu "npm run config". Halaman ini sedang dibuka
+> lewat file:// (file:///.../admin.html). Buka lewat server: jalankan "npm start"
+> lalu akses http://localhost:3000/admin — login Google tidak bisa dipakai di
+> file://.
+
+Kalau dibuka lewat `http://`, petunjuk itu **tidak** ditampilkan (supaya tidak
+membingungkan). Diuji di `tests/firebase-mock.test.cjs` (8 pemeriksaan baru).
+
+**Koreksi klaim saya sendiri:** sebelumnya saya menulis "Firebase Auth tidak
+mendukung `file://`". Setelah diuji di Firefox headless, ternyata **login email
++ kata sandi bisa berhasil** dari `file://` (`origin = null`, error
+`auth/invalid-credential` datang dari server, bukan diblokir browser). Yang
+**pasti** gagal di `file://` adalah **login Google** (origin `null` tidak
+terdaftar) dan `localStorage` bisa terpisah per berkas. Jadi `file://` bukan
+mustahil, hanya **tidak dapat diandalkan** — tetap harus pakai server.
+
+
+### 4.13 ℹ️ Tidak ada cara cepat memeriksa kesehatan konfigurasi
+
+Sebelumnya untuk tahu "kenapa login tidak jalan" harus buka Console browser
+satu per satu. Sekarang ada satu perintah:
+
+```bash
+npm run doctor
+```
+
+Memeriksa: versi Node, `.env` (ada? lengkap?), `js/firebase-config.js` (ada?
+`projectId` terisi?), kecocokan `.env` ↔ config, dan koneksi Firestore/Auth
+via REST. Keluar dengan kode `1` kalau ada penghalang.
+
+Contoh keluaran pada proyek ini:
+
+```
+1. Node.js
+  ✔ Node.js v26.13.0
+2. File .env
+  ✔ .env ditemukan
+  ✔ semua variabel wajib terisi (project: temubalik-26f80)
+3. File js/firebase-config.js
+  ✔ projectId terisi temubalik-26f80
+  ✔ databaseId default
+  ✔ js/firebase-config.js sesuai dengan .env
+  ! sandi demo tertulis di js/firebase-config.js hanya berlaku di localhost
+4. Koneksi ke Firebase
+  ✔ Firestore dapat dibaca database "default"
+  ! Daftar provider Auth tidak dapat dibaca dengan apiKey bukan penghalang
+Ringkasan
+  Tidak ada penghalang. 2 hal sebaiknya diperbaiki
+```
+
+Diuji oleh `tests/doctor.test.cjs` (28 pemeriksaan), termasuk jalur gagal
+`.env` hilang, `.env` kosong, config hilang, `projectId` kosong, dan peringatan
+`databaseId: "(default)"` — semuanya memakai folder tiruan sehingga `.env`
+asli tidak disentuh.
+
+
+---
+
+## 4b. Yang masih KURANG (audit 13 Nov 2026)
+
+Hasil audit menyeluruh setelah keluhan "pas mau masuk admin muncul pesan
+Konfigurasi Firebase belum diatur". Daftar ini **khusus hal yang belum
+dikerjakan**, bukan yang sudah beres.
+
+| # | Yang kurang | Dampak | Status |
+| --- | --- | --- | --- |
+| 1 | `.nvmrc` tidak ada | Versi Node beda antar mesin → error membingungkan | ✅ **selesai** — `.nvmrc` = `18`, `engines.node` = `>=18` |
+| 2 | Tidak ada `npm run doctor` | Sulit mendiagnosis tanpa buka Console browser | ✅ **selesai** — `scripts/doctor.js` |
+| 3 | Dokumentasi tidak melarang `file://` | Orang mengklik dua kali `admin.html` → config tidak termuat | ✅ **selesai** — `README-deploy.md` bagian "Cara membuka situs" |
+| 4 | Pesan error tidak menyebut URL | Tidak tahu sedang membuka dari mana | ✅ **selesai** — §4.12 |
+| 5 | `npm start` 404 untuk `/admin` | Lokal beda dengan live | ✅ **selesai** — §4.11 |
+| 6 | `.env.example`: `FIREBASE_MAX_DOCS` hilang | Nilai batas tidak terdokumentasi | ✅ **selesai** |
+| 7 | `.env.example`: `FIREBASE_DATABASE_ID=(default)` | Menyesatkan — proyek ini pakai `default` | ✅ **selesai** + peringatan |
+| 8 | Service account bocor, belum di-rotate | Akses penuh ke project | 🔴 **belum** — §3.3 |
+| 9 | `allow read: true` membocorkan `whatsapp`/`namaPelapor` | Privasi pelapor | ⏸️ **ditunda** atas permintaan Anda |
+| 10 | Belum ada App Check / rate limit Firestore | Bisa disalahgunakan | ⚠️ **belum** — §3.6 |
+| 11 | Sandi admin pernah tampil di chat | Riwayat chat bisa dibaca orang lain | ⚠️ **disarankan rotasi** — §3.4 |
+| 12 | `Cache-Control` JS `max-age=3600` | Pengunjung bisa tertahan kode lama | ⚠️ **belum** |
+| 13 | Folder `server/` tidak di-deploy | Kode backend mati (tidak dipakai) | ℹ️ **keputusan** — §3.7 |
+| 14 | Firestore berisi 0 dokumen | Panel admin menampilkan "0 laporan" | ℹ️ **normal**, bukan bug |
+
+**Yang TIDAK kurang (sudah diverifikasi):**
+
+- Ketujuh nilai config Firebase di `.env`, `js/firebase-config.js`, dan situs
+  live **identik** dengan yang ada di Firebase Console.
+- Situs live sehat: `CFG=ADA`, `isReady=true`, `isAuth=true`, `reason=""`.
+- `npm start` sehat: config tersaji 200, login admin berhasil (§1).
+- Tidak ada folder proyek lain yang tertinggal tanpa config — hanya
+  `/home/khairul/Downloads/admin.html` yang **milik proyek lain**
+  (SMK Nusantara, judulnya beda).
+
 ---
 
 ## 5. Langkah selanjutnya (urutan yang disarankan)
@@ -700,17 +835,31 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$B:runQuery?key=$K" \
 **Jalankan semua tes:**
 
 ```bash
-# butuh server di port 3200 dan 8899
-PORT=3200 node server/server.js &
-node -e "require('http').createServer((q,s)=>require('fs').createReadStream('index.html').pipe(s)).listen(8899)" &
-
-node tests/api.test.cjs
+# Tes yang tidak butuh server:
 node tests/storage.test.cjs
-node tests/form.test.cjs
-node tests/dom.test.cjs
 node tests/firebase-mock.test.cjs
 node tests/firebase-integration.test.cjs
-node tests/firebase.test.cjs
+node tests/doctor.test.cjs
+
+# Tes yang butuh server di port 3200 dan 8899:
+PORT=3200 node server/server.js &
+node /tmp/static8899.cjs &     # penyaji statis apa pun di 8899
+
+node tests/api.test.cjs        # 107 pemeriksaan
+node tests/form.test.cjs       # 29
+node tests/dom.test.cjs        # 46
+node tests/firebase.test.cjs   # 33
+```
+
+Total: **376 pemeriksaan, 0 gagal**.
+
+`tests/doctor.test.cjs` memakai folder tiruan, jadi `.env` dan
+`js/firebase-config.js` asli tidak tersentuh.
+
+**Cek kesehatan konfigurasi (satu perintah):**
+
+```bash
+npm run doctor
 ```
 
 ---
@@ -729,6 +878,13 @@ node tests/firebase.test.cjs
   `PATCH status=FINALIZED` → buat release.
 - **`prestart` sudah ada** di `package.json` sehingga `npm start` otomatis
   menjalankan `npm run config`.
+- **`cleanUrls` juga berlaku di lokal.** `serveStatic()` mencoba
+  `berkas + ".html"` kalau berkas tanpa ekstensi tidak ada, jadi `/admin`
+  berfungsi sama seperti di Hosting (§4.11).
+- **`npm run doctor`** = `scripts/doctor.js`. Tidak butuh dependency, memakai
+  `fetch` bawaan Node 18+. Keluar kode `1` kalau ada penghalang (§4.13).
+- **Versi Node:** `.nvmrc` = `18`, `package.json` `engines.node` = `>=18`.
+  Node 26 juga jalan (dipakai saat pengujian).
 - **`.env` dibaca** oleh `server/env.js` (tanpa dependency, karena Node 18
   belum punya `--env-file`). Variabel yang sudah ada di shell tidak ditimpa.
 
@@ -749,9 +905,21 @@ b1bd790  feat: isi email admin & nomor WhatsApp asli
 c9bf0dd  fix: jangan unggah .git & .firebase ke Hosting
 ```
 
-Deploy terakhir: **hosting + firestore rules**, keduanya `Deploy complete!`.
+Deploy terakhir: **13 Nov 2026 — hosting** (`Deploy complete!`).
 Ruleset aktif: `1d6548c4-d665-4615-93c6-be0e4e1941e6` (memuat UID admin,
 email, dan batas foto 700000).
+
+Bukti deploy terakhir (hash lokal vs live):
+
+```
+js/firebase-adapter.js   SAMA
+js/admin.js              SAMA
+js/storage.js            SAMA
+css/style.css            SAMA
+```
+
+Halaman live: `/`, `/admin`, `/daftar`, `/lapor`, `/status`, `/tentang`
+→ semuanya **200**.
 
 Kalau mengubah kode lagi:
 
@@ -784,4 +952,13 @@ manual lebih dulu membuat kesalahan konfigurasi cepat terlihat.
 | 12 Nov 2026 | **Perbaiki bug data contoh hilang** — `getAllProgressive` kini menggabung, bukan mengganti; tambah label CONTOH (§3.8) |
 | 12 Nov 2026 | **Atur kata sandi akun admin & uji login lewat UI** — berhasil masuk panel admin (§3.4) |
 | 12 Nov 2026 | **Perbaiki bug "Firebase tidak dapat dihubungi, login dinonaktifkan"** — pisahkan Auth dari Firestore, analytics tidak menahan kesiapan, selaraskan timeout, pesan error jujur (§2.2 Bug 5, §4.9) |
+| 13 Nov 2026 | **Audit menyeluruh** atas keluhan "Konfigurasi Firebase belum diatur": uji live + `npm start` + `file://` → ketiganya sehat, config identik dengan Console |
+| 13 Nov 2026 | **`npm start` 404 untuk `/admin`** — samakan dengan `cleanUrls` Hosting (§4.11) |
+| 13 Nov 2026 | **Lengkapi `.env.example`** — `FIREBASE_MAX_DOCS`, perbaiki `FIREBASE_DATABASE_ID=(default)` → `default` |
+| 13 Nov 2026 | **Tambah `npm run doctor`** — pemeriksa kesehatan konfigurasi (§4.13) |
+| 13 Nov 2026 | **Tambah `.nvmrc`** + script `doctor`/`test:doctor` di `package.json` |
+| 13 Nov 2026 | **Dokumentasi `file://`** — `README-deploy.md` bagian "Cara membuka situs"; pesan error kini menyebut URL yang dibuka (§4.12) |
+| 13 Nov 2026 | **Tes regresi** — `tests/api.test.cjs` +6, `tests/firebase-mock.test.cjs` +8, `tests/doctor.test.cjs` baru (28). Total 376 lulus |
+| 13 Nov 2026 | **Koreksi klaim sendiri**: `file://` + Firebase Auth email **bisa** jalan di Firefox (origin `null`); yang pasti gagal hanya login Google. Dokumentasi diperbaiki agar jujur (§4.12) |
+| 13 Nov 2026 | **Deploy ulang hosting** — hash lokal = live, semua halaman 200, login admin di `npm start` terbukti berhasil |
 

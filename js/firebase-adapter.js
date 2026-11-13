@@ -36,6 +36,23 @@
     }
   }
 
+  /* Petunjuk tambahan kalau halaman dibuka lewat file://.
+     Penyebab tersering "config tidak ditemukan": orang mengklik dua kali
+     admin.html sehingga address bar berawalan file:/// — di situ berkas
+     lokal bisa gagal dimuat dan login Google pasti tidak bisa (origin null).
+     Pesan yang menyebut URL membuat penyebabnya langsung terlihat. */
+  function petunjukCaraBuka() {
+    const loc = global.location || {};
+    const protokol = String(loc.protocol || "");
+    if (protokol !== "file:") return "";
+    return (
+      " Halaman ini sedang dibuka lewat file:// (" +
+      String(loc.href || "file://...") +
+      "). Buka lewat server: jalankan \"npm start\" lalu akses " +
+      "http://localhost:3000/admin — login Google tidak bisa dipakai di file://."
+    );
+  }
+
   /* Batas waktu. Kalau Firestore tidak menjawab (mis. API belum diaktifkan
      atau jaringan buruk), jangan biarkan halaman menggantung lama. */
   const SDK_TIMEOUT_MS = 9000;
@@ -219,10 +236,12 @@
     if (!adaConfigFile) {
       // js/firebase-config.js tidak ada atau gagal dimuat sama sekali.
       // Penyebab tersering: repo baru di-clone, dan file itu memang tidak
-      // di-commit (dihasilkan dari .env).
+      // di-commit (dihasilkan dari .env). Penyebab kedua: halaman dibuka
+      // lewat file:// sehingga berkas lokal tidak termuat.
       state.reason =
         "File js/firebase-config.js tidak ditemukan. Jalankan " +
-        '"cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config".';
+        '"cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config".' +
+        petunjukCaraBuka();
       return false;
     }
 
@@ -232,7 +251,8 @@
       state.reason =
         "Konfigurasi Firebase tidak lengkap" +
         (kosong.length ? ` (${kosong.join(", ")} kosong)` : "") +
-        '. Isi variabel FIREBASE_* di .env lalu jalankan "npm run config".';
+        '. Isi variabel FIREBASE_* di .env lalu jalankan "npm run config".' +
+        petunjukCaraBuka();
       return false;
     }
 

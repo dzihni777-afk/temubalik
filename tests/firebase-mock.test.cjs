@@ -273,6 +273,19 @@ async function runAdapter(mock, configOverrides = {}) {
   return win;
 }
 
+/** Sama seperti runAdapterTanpaConfig, tapi halaman dibuka lewat file://. */
+async function runAdapterTanpaConfigFileProtocol(mock) {
+  const win = makeWindow(mock);
+  win.location = { protocol: "file:", search: "", href: "file:///home/uji/admin.html" };
+  const sandbox = vm.createContext(win);
+
+  const code = fs.readFileSync(path.join(ROOT, "js/firebase-adapter.js"), "utf8");
+  vm.runInContext(code, sandbox);
+
+  await win.FirebaseStore.ready();
+  return win;
+}
+
 /**
  * Seperti runAdapter(), tapi window.TEMUBALIK_FIREBASE TIDAK diset sama sekali.
  * Meniru repo baru di-clone: js/firebase-config.js tidak ada (404).
@@ -481,6 +494,53 @@ async function runAdapterTanpaConfig(mock) {
 
     // Situs tetap hidup: fallback ke localStorage, bukan blank.
     check("mode = local", FB4.mode() === "local");
+
+    // Halaman dibuka lewat http:// (bukan file://) → JANGAN tampilkan
+    // petunjuk file://, karena itu akan membingungkan.
+    check(
+      "tidak menyebut file:// saat dibuka lewat http",
+      !/file:\/\//i.test(FB4.reason()),
+      FB4.reason()
+    );
+  }
+
+  console.log("\n=== Adapter saat dibuka lewat file:// (klik dua kali) ===");
+  {
+    // Penyebab paling sering: orang mengklik dua kali admin.html, sehingga
+    // config tidak termuat. Pesan harus menyebut URL yang sedang dibuka
+    // supaya penyebabnya langsung terlihat.
+    const mock5 = createMockFirebase();
+    const win5 = await runAdapterTanpaConfigFileProtocol(mock5);
+    const FB5 = win5.FirebaseStore;
+
+    check("tidak aktif tanpa file config", FB5.isReady() === false);
+    check(
+      "alasan menyebut file://",
+      /file:\/\//i.test(FB5.reason()),
+      FB5.reason()
+    );
+    check(
+      "alasan menyebut URL yang sedang dibuka",
+      FB5.reason().includes("file:///home/uji/admin.html"),
+      FB5.reason()
+    );
+    check(
+      "alasan menyarankan npm start",
+      /npm start/i.test(FB5.reason()),
+      FB5.reason()
+    );
+    check(
+      "alasan menyebut alamat pengganti localhost:3000/admin",
+      /localhost:3000\/admin/.test(FB5.reason()),
+      FB5.reason()
+    );
+    // Tetap memberi langkah perbaikan config yang sebenarnya.
+    check(
+      "tetap menyebut npm run config",
+      /npm run config/i.test(FB5.reason()),
+      FB5.reason()
+    );
+    check("situs tetap hidup (mode local)", FB5.mode() === "local");
   }
 
   /* ------------------------------------------------------------------ */

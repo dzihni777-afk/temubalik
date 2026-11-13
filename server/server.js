@@ -71,19 +71,39 @@ async function serveStatic(req, res, pathname) {
   try {
     stat = await fs.stat(target);
   } catch {
+    // Samakan dengan perilaku Firebase Hosting (`cleanUrls: true`):
+    // /admin → admin.html. Tanpa ini, URL yang sama berfungsi di live
+    // tetapi 404 di lokal, membingungkan saat mengembangkan.
+    if (!path.extname(target)) {
+      const withHtml = target + ".html";
+      try {
+        const st2 = await fs.stat(withHtml);
+        if (st2.isFile()) {
+          return sendFile(req, res, withHtml);
+        }
+      } catch {
+        /* bukan berkas .html — lanjut 404 di bawah */
+      }
+    }
     throw new HttpError(404, "NOT_FOUND", `File "${relative}" tidak ditemukan.`);
   }
 
   // Kalau yang diminta folder, layani index.html di dalamnya.
-  const file = stat.isDirectory() ? path.join(target, "index.html") : target;
   if (stat.isDirectory()) {
+    const file = path.join(target, "index.html");
     try {
       await fs.access(file);
     } catch {
       throw new HttpError(404, "NOT_FOUND", `Folder "${relative}" tidak punya index.html.`);
     }
+    return sendFile(req, res, file);
   }
 
+  return sendFile(req, res, target);
+}
+
+/** Kirim satu berkas dengan header yang sesuai. */
+async function sendFile(req, res, file) {
   const body = await fs.readFile(file);
   const ext = path.extname(file).toLowerCase();
 

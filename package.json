@@ -8,7 +8,9 @@
     "dev": "node --watch server/server.js",
     "config": "node scripts/gen-firebase-config.js",
     "prestart": "node scripts/gen-firebase-config.js",
-    "test:api": "node tests/api.test.cjs"
+    "doctor": "node scripts/doctor.js",
+    "test:api": "node tests/api.test.cjs",
+    "test:doctor": "node tests/doctor.test.cjs"
   },
   "engines": {
     "node": ">=18"

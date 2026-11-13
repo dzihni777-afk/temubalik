@@ -32,6 +32,18 @@
 
   let allReports = [];
 
+  /** Petunjuk tambahan kalau halaman dibuka lewat file:// (klik dua kali). */
+  function petunjukUrl() {
+    const loc = window.location || {};
+    if (String(loc.protocol || "") !== "file:") {
+      return "";
+    }
+    return (
+      " Halaman ini sedang dibuka lewat file:// — buka lewat server: " +
+      "jalankan \"npm start\" lalu akses http://localhost:3000/admin."
+    );
+  }
+
   initSharedUI();
 
   /* ---------------------------------------------------------------- */
@@ -66,7 +78,8 @@
       if (loginHint) {
         loginHint.textContent =
           "Konfigurasi Firebase belum diatur di server ini, jadi login admin " +
-          "belum bisa dipakai. Jalankan: cp .env.example .env → isi FIREBASE_* → npm run config.";
+          "belum bisa dipakai. Jalankan: cp .env.example .env → isi FIREBASE_* → npm run config." +
+          petunjukUrl();
       }
       if (loginNote) loginNote.textContent = "";
       return;
@@ -205,7 +218,8 @@
           "password",
           "Konfigurasi Firebase belum diatur di server ini. Jalankan " +
             '"cp .env.example .env", isi variabel FIREBASE_*, lalu "npm run config". ' +
-            "Penjelasan: README-firebase.md Langkah 1."
+            "Penjelasan: README-firebase.md Langkah 1." +
+            petunjukUrl()
         );
       } else if (
         code.includes("invalid-credential") ||

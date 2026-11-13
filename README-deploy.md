@@ -9,6 +9,48 @@ https://temubalik-26f80.firebaseapp.com
 
 ---
 
+## 🖥️ Cara membuka situs — JANGAN lewat `file://`
+
+Ini penyebab paling sering dari pesan **"Konfigurasi Firebase kosong"** atau
+login admin yang tidak bisa dipakai.
+
+| ✅ Benar | ❌ Salah |
+| --- | --- |
+| `npm start` lalu buka `http://localhost:3000` | Klik dua kali `admin.html` (address bar jadi `file:///...`) |
+| Buka `https://temubalik-26f80.web.app/admin` | Seret file ke jendela browser |
+
+Kenapa `file://` tetap tidak disarankan (walau kadang tampak jalan):
+
+1. **Login Google pasti gagal.** `origin` menjadi `null`, dan Firebase menolak
+   popup/redirect dari origin yang tidak terdaftar.
+2. **Login email + kata sandi bisa jalan, bisa juga tidak** — tergantung
+   browser. Kalau jalan pun, sesi login mudah hilang.
+3. **Data tidak konsisten.** `localStorage` di `file://` bisa terpisah per
+   berkas (tergantung browser), jadi laporan yang Anda buat di satu halaman
+   tidak terlihat di halaman lain.
+4. **`js/firebase-config.js` bisa tidak ikut** kalau Anda hanya menyalin
+   `admin.html` ke tempat lain — inilah yang memunculkan pesan "Konfigurasi
+   Firebase kosong".
+
+Kesimpulan: **selalu pakai server**. Satu perintah, dan semua masalah di atas
+hilang.
+
+**Cara memastikan dalam 2 detik:** lihat address bar. Kalau berawalan
+`file:///` — tutup, lalu jalankan `npm start` dan buka `http://localhost:3000`.
+
+```bash
+npm start
+# lalu buka:
+#   http://localhost:3000/admin      ← halaman admin
+#   http://localhost:3000/           ← beranda
+```
+
+URL tanpa `.html` (`/admin`, `/daftar`, `/lapor`, `/status`) berlaku sama
+seperti di Firebase Hosting, jadi alamat yang Anda pakai di lokal identik
+dengan yang di live.
+
+---
+
 ## 🟢 Pertama kali clone repo ini
 
 `js/firebase-config.js` **tidak di-commit** (isinya dihasilkan dari `.env`,
@@ -55,6 +97,16 @@ kesalahan konfigurasi cepat terlihat.
 | `database (default) does not exist` | `databaseId` tidak sesuai | lihat bagian di bawah |
 
 Cek cepat dari terminal:
+
+```bash
+npm run doctor
+```
+
+Perintah ini memeriksa Node.js, `.env`, `js/firebase-config.js`, kecocokan
+keduanya, dan koneksi ke Firestore/Auth — lalu mencetak apa yang salah beserta
+cara memperbaikinya. Keluar dengan kode `1` kalau ada penghalang.
+
+Atau periksa satu nilai saja:
 
 ```bash
 node -e "const s=require('fs').readFileSync('js/firebase-config.js','utf8');

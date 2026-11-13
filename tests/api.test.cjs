@@ -115,6 +115,28 @@ function waitForServer(timeoutMs = 15000) {
       const blocked = await req("GET", "/server/db.js");
       check("folder server/ tidak bisa diakses", blocked.status === 403, `dapat ${blocked.status}`);
 
+      // Regresi: Firebase Hosting memakai cleanUrls, jadi /admin (tanpa .html)
+      // harus jalan juga di server lokal. Dulu 404 di sini tapi 200 di live.
+      for (const [label, urlPath, penanda] of [
+        ["/admin", "/admin", "Admin"],
+        ["/daftar", "/daftar", "Daftar"],
+        ["/lapor", "/lapor", "Lapor"],
+        ["/status", "/status", "Status"],
+      ]) {
+        const r = await req("GET", urlPath);
+        check(
+          `GET ${label} (tanpa .html) → 200`,
+          r.status === 200 && r.text.includes(penanda),
+          `dapat ${r.status}`
+        );
+      }
+
+      const adminHtml = await req("GET", "/admin.html");
+      check("/admin.html tetap 200", adminHtml.status === 200);
+
+      const notFound = await req("GET", "/halaman-tidak-ada");
+      check("URL tak dikenal tetap 404", notFound.status === 404, `dapat ${notFound.status}`);
+
       const blocked2 = await req("GET", "/data/data.json");
       check("data/data.json tetap boleh (dipakai front-end)", blocked2.status === 200);
 
